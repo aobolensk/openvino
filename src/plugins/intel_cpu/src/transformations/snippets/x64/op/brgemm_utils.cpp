@@ -29,9 +29,10 @@ cpu_isa_t get_primitive_isa(const ov::element::Type& dt_in0, bool is_with_amx) {
     } else {          \
         Y             \
     }
-#define SUPPORT_ONE(X, MESSAGE)         SUPPORT(X, OV_CPU_JIT_EMITTER_THROW(MESSAGE);)
-#define SUPPORT_TWO(X, Y, MESSAGE)      SUPPORT(X, SUPPORT_ONE(Y, MESSAGE))
-#define SUPPORT_THREE(X, Y, Z, MESSAGE) SUPPORT(X, SUPPORT_TWO(Y, Z, MESSAGE))
+#define SUPPORT_ONE(X, MESSAGE)           SUPPORT(X, OV_CPU_JIT_EMITTER_THROW(MESSAGE);)
+#define SUPPORT_TWO(X, Y, MESSAGE)        SUPPORT(X, SUPPORT_ONE(Y, MESSAGE))
+#define SUPPORT_THREE(X, Y, Z, MESSAGE)   SUPPORT(X, SUPPORT_TWO(Y, Z, MESSAGE))
+#define SUPPORT_FOUR(A, B, C, D, MESSAGE) SUPPORT(A, SUPPORT_THREE(B, C, D, MESSAGE))
 
     // Note: AMX might be not used even if it's supported by the hardware, check the BrgemmToBrgemmCPU pass for details
     if (is_with_amx) {
@@ -44,16 +45,19 @@ cpu_isa_t get_primitive_isa(const ov::element::Type& dt_in0, bool is_with_amx) {
     } else if (dt_in0 == ov::element::bf16) {
         SUPPORT_ONE(avx512_core_bf16, "Unsupported hardware configuration: bf16 is supported only on avx512 platforms")
     } else if (one_of(dt_in0, ov::element::u8, ov::element::i8)) {
-        SUPPORT_THREE(avx512_core_vnni,
-                      avx2_vnni_2,
-                      avx2_vnni,
-                      "Unsupported hardware configuration: int8 is supported only on vnni platforms")
+        SUPPORT_FOUR(avx512_core,
+                     avx512_core_vnni,
+                     avx2_vnni_2,
+                     avx2_vnni,
+                     "Unsupported hardware configuration: int8 is supported only on vnni or avx512 platforms")
     } else {
         SUPPORT_TWO(avx512_core,
                     cpu::x64::avx2,
                     "Unsupported hardware configuration: brgemm requires at least avx2 isa")
     }
     return isa;
+#undef SUPPORT_FOUR
+#undef SUPPORT_THREE
 #undef SUPPORT_TWO
 #undef SUPPORT_ONE
 #undef SUPPORT
