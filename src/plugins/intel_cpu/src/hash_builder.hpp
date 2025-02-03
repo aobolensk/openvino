@@ -37,7 +37,7 @@ size_t combine(size_t seed, const std::vector<T>& v) {
 }
 
 struct Builder {
-    Builder(size_t seed) : m_seed(seed) {}
+    explicit Builder(size_t seed) : m_seed(seed) {}
 
     // todo add specializations / sfinae
     template <typename T>

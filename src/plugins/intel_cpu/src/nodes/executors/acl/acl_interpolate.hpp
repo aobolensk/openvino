@@ -13,7 +13,7 @@ namespace intel_cpu {
 
 class ACLInterpolateExecutor : public InterpolateExecutor {
 public:
-    ACLInterpolateExecutor(const ExecutorContext::CPtr context) : InterpolateExecutor(context) {}
+    explicit ACLInterpolateExecutor(const ExecutorContext::CPtr context) : InterpolateExecutor(context) {}
 
     bool init(const InterpolateAttrs& interpolateAttrs,
               const std::vector<MemoryDescPtr>& srcDescs,

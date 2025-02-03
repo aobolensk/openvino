@@ -46,7 +46,7 @@ public:
 
     public:
         Reg() {}
-        Reg(const RegistersPool::Ptr& regPool) {
+        explicit Reg(const RegistersPool::Ptr& regPool) {
             initialize(regPool);
         }
         Reg(const RegistersPool::Ptr& regPool, int requestedIdx) {
@@ -62,11 +62,11 @@ public:
             return *this;
         }
         Reg(Reg&& other) noexcept : reg(other.reg), regPool(std::move(other.regPool)) {}
-        operator TReg&() {
+        explicit operator TReg&() {
             ensureValid();
             return reg;
         }
-        operator const TReg&() const {
+        explicit operator const TReg&() const {
             ensureValid();
             return reg;
         }
@@ -156,7 +156,7 @@ public:
 protected:
     class PhysicalSet {
     public:
-        PhysicalSet(int size) : isFreeIndexVector(size, true) {}
+        explicit PhysicalSet(int size) : isFreeIndexVector(size, true) {}
 
         void setAsUsed(size_t regIdx) {
             if (regIdx >= isFreeIndexVector.size()) {
@@ -230,7 +230,7 @@ protected:
         OPENVINO_THROW("countUnusedOpmask: The Opmask is not supported in current instruction set");
     }
 
-    RegistersPool(int simdRegistersNumber) : simdSet(simdRegistersNumber) {
+    explicit RegistersPool(int simdRegistersNumber) : simdSet(simdRegistersNumber) {
         checkUniqueAndUpdate();
         generalSet.exclude(Xbyak::Reg64(Xbyak::Operand::RSP));
         generalSet.exclude(Xbyak::Reg64(Xbyak::Operand::RAX));
@@ -300,7 +300,7 @@ private:
 template <dnnl::impl::cpu::x64::cpu_isa_t isa>
 class IsaRegistersPool : public RegistersPool {
 public:
-    IsaRegistersPool(std::initializer_list<Xbyak::Reg> regsToExclude)
+    explicit IsaRegistersPool(std::initializer_list<Xbyak::Reg> regsToExclude)
         : RegistersPool(regsToExclude, dnnl::impl::cpu::x64::cpu_isa_traits<isa>::n_vregs) {}
 };
 

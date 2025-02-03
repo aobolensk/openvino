@@ -15,7 +15,7 @@ namespace node {
 
 class SDPAShapeInferFactory : public ShapeInferFactory {
 public:
-    SDPAShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit SDPAShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

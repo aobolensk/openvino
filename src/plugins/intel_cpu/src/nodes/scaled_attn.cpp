@@ -908,7 +908,7 @@ struct ScaledDotProductAttention::AttentionExecutor : public ScaledDotProductAtt
     MHAKernel<KType, T> kernel;
     MHASingleToken kernel_single_token;
 
-    AttentionExecutor(GraphContext::CPtr ctx) : context(std::move(ctx)), kernel(context) {}
+    explicit AttentionExecutor(GraphContext::CPtr ctx) : context(std::move(ctx)), kernel(context) {}
 
     void prepare_attn_mask(const MemoryPtr& attn_input) {
         attn_buf.resize<float>(attn_input->getStaticDims());

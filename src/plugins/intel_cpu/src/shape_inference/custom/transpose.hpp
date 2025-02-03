@@ -48,7 +48,7 @@ private:
 
 class TransposeShapeInferFactory : public ShapeInferFactory {
 public:
-    TransposeShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit TransposeShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

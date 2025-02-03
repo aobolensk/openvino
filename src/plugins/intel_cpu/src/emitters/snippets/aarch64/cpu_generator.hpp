@@ -47,7 +47,7 @@ private:
 class CPUGenerator : public snippets::Generator {
 public:
     CPUGenerator(dnnl::impl::cpu::aarch64::cpu_isa_t isa, ov::intel_cpu::MultiCacheWeakPtr);
-    CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target);
+    explicit CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target);
     std::shared_ptr<Generator> clone() const override;
 
 protected:

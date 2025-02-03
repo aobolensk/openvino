@@ -100,7 +100,7 @@ public:
      *
      * @param op ngraph operation
      */
-    NgraphShapeInferFactory(std::shared_ptr<ov::Node> op);
+    explicit NgraphShapeInferFactory(std::shared_ptr<ov::Node> op);
 
     ShapeInferPtr makeShapeInfer() const override;
 

@@ -21,7 +21,7 @@ namespace intel_cpu {
 class bfloat16_t {
 public:
     bfloat16_t() = default;
-    bfloat16_t(float value) noexcept : m_value {
+    explicit bfloat16_t(float value) noexcept : m_value {
 #if defined BFLOAT16_ROUND_MODE_TO_NEAREST
         round_to_nearest(value)
 #elif defined BFLOAT16_ROUND_MODE_TO_NEAREST_EVEN
@@ -35,7 +35,7 @@ public:
     }
     {}
 
-    operator float() const {
+    explicit operator float() const {
         return F32{static_cast<uint32_t>(m_value) << 16}.vfloat;
     }
     static constexpr bfloat16_t from_bits(uint16_t bits) {
@@ -60,9 +60,9 @@ public:
 private:
     constexpr bfloat16_t(uint16_t x, bool) : m_value{x} {}
     union alignas(16) F32 {
-        F32(float val) : vfloat{val} {}
+        explicit F32(float val) : vfloat{val} {}
 
-        F32(uint32_t val) : vint{val} {}
+        explicit F32(uint32_t val) : vint{val} {}
         float vfloat;
         uint32_t vint;
     };

@@ -41,7 +41,7 @@ private:
 
 class StridedSliceShapeInferFactory : public ShapeInferFactory {
 public:
-    StridedSliceShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit StridedSliceShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

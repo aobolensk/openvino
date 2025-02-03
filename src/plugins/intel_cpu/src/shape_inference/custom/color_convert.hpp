@@ -21,7 +21,7 @@ using Result = IShapeInfer::Result;
  */
 class ColorConvertShapeInfer : public ShapeInferEmptyPads {
 public:
-    ColorConvertShapeInfer(bool singlePlain) : m_singlePlain(singlePlain) {}
+    explicit ColorConvertShapeInfer(bool singlePlain) : m_singlePlain(singlePlain) {}
     Result infer(const std::vector<std::reference_wrapper<const VectorDims>>& input_shapes,
                  const std::unordered_map<size_t, MemoryPtr>& data_dependency) override;
     port_mask_t get_port_mask() const override {
@@ -34,7 +34,7 @@ private:
 
 class ColorConvertShapeInferFactory : public ShapeInferFactory {
 public:
-    ColorConvertShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit ColorConvertShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

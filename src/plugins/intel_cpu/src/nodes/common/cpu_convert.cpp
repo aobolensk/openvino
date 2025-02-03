@@ -133,7 +133,7 @@ public:
 
     typedef void (*convert_vec_t)(jit_generator&, const RegExp&, const RegExp&);
 
-    jit_convert_array(convert_vec_t convert_vec)
+    explicit jit_convert_array(convert_vec_t convert_vec)
         : jit_kernel(jit_name()),
           _convert_vec(convert_vec),
           _src_size(sizeof(src_t)),

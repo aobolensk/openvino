@@ -74,7 +74,7 @@ private:
 class SubgraphStaticExecutor : public SubgraphExecutor, public SubgraphStaticBaseExecutor {
 public:
     template <typename T, typename... Args>
-    SubgraphStaticExecutor(T&& first, Args&&... rest)
+    explicit SubgraphStaticExecutor(T&& first, Args&&... rest)
         : SubgraphExecutor(std::forward<T>(first), std::forward<Args>(rest)...),
           SubgraphStaticBaseExecutor() {}
 
@@ -84,7 +84,7 @@ public:
 class SubgraphDynamicSpecializedExecutor : public SubgraphExecutor, public SubgraphDynamicSpecializedBaseExecutor {
 public:
     template <typename T, typename... Args>
-    SubgraphDynamicSpecializedExecutor(T&& first, Args&&... rest)
+    explicit SubgraphDynamicSpecializedExecutor(T&& first, Args&&... rest)
         : SubgraphExecutor(std::forward<T>(first), std::forward<Args>(rest)...),
           SubgraphDynamicSpecializedBaseExecutor(std::forward<T>(first)) {}
 

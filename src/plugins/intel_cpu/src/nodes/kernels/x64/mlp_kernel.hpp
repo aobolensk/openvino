@@ -187,7 +187,7 @@ struct Work {
     int blk_K_size = 0;
     int output_id;
     void* p_raw_weights;
-    operator bool() {
+    explicit operator bool() {
         return BN > 0;
     }
 

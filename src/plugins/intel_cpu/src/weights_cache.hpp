@@ -48,7 +48,7 @@ public:
 
         SharedMemory(std::unique_lock<std::mutex>&& lock, MemoryInfo::Ptr memory, MemoryPtr newPtr = nullptr);
 
-        operator MemoryPtr() const;
+        operator MemoryPtr() const; // NOLINT
         bool isValid() const;
         void valid(bool b);
 

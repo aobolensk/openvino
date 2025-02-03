@@ -378,7 +378,7 @@ namespace {
  */
 class RnnShapeInfer : public IShapeInfer {
 public:
-    RnnShapeInfer(std::shared_ptr<ov::Node> op)
+    explicit RnnShapeInfer(std::shared_ptr<ov::Node> op)
         : is_sequence(!(RNN::isCell(op))),
           native_order(RNN::testNativeOrder(op)),
           m_shape_infer(make_shape_inference(std::move(op))) {}
@@ -419,7 +419,7 @@ private:
 
 class RnnShapeInferFactory final : public ShapeInferFactory {
 public:
-    RnnShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit RnnShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override {
         return std::make_shared<RnnShapeInfer>(m_op);
     }

@@ -13,7 +13,7 @@ namespace intel_cpu {
 
 class AclPoolingExecutor : public PoolingExecutor {
 public:
-    AclPoolingExecutor(const ExecutorContext::CPtr context);
+    explicit AclPoolingExecutor(const ExecutorContext::CPtr context);
 
     bool init(const PoolingAttrs& poolingAttrs,
               const std::vector<MemoryDescPtr>& srcDescs,

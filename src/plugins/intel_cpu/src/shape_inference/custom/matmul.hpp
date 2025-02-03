@@ -37,7 +37,7 @@ private:
 
 class MMShapeInferFactory : public ShapeInferFactory {
 public:
-    MMShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit MMShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

@@ -149,7 +149,7 @@ struct BrgemmCopyBKernel : public RepackedInputKernel, public dnnl::impl::cpu::x
     };
 
     BrgemmCopyBKernel();
-    BrgemmCopyBKernel(const BrgemmCopyBKernelConfig& conf);
+    explicit BrgemmCopyBKernel(const BrgemmCopyBKernelConfig& conf);
 
     dnnl::impl::status_t create_kernel() override;
 

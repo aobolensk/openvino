@@ -25,7 +25,7 @@ public:
 
     /// \brief Construct a static dimension.
     /// \param dimension Value of the dimension.
-    StaticDimension(value_type dimension);
+    explicit StaticDimension(value_type dimension);
 
     /// \brief Construct a static dimension.
     /// \param ldimension Value of the dimension (must be equal to udimension)
@@ -35,7 +35,7 @@ public:
     /// \brief Construct a zero dimension
     StaticDimension() = default;
 
-    StaticDimension(const Dimension&) {
+    explicit StaticDimension(const Dimension&) {
         OPENVINO_THROW("[shape infer] Shoudn't convert from Dimension to StaticDimension.");
     }
 

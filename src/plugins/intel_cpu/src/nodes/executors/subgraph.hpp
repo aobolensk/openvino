@@ -127,7 +127,7 @@ protected:
 // Specialized dynamic executor based on shape agnostic kernel for the specific input shapes
 class SubgraphDynamicSpecializedBaseExecutor {
 public:
-    SubgraphDynamicSpecializedBaseExecutor(const std::shared_ptr<CPURuntimeConfig>& snippet_config)
+    explicit SubgraphDynamicSpecializedBaseExecutor(const std::shared_ptr<CPURuntimeConfig>& snippet_config)
         : m_buffer_offsets(snippet_config->buffer_cluster_offsets),
           m_data_offsets(snippet_config->io_data_offsets),
           m_loop_args(snippet_config->loop_args) {

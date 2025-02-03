@@ -952,7 +952,7 @@ struct RDFTJitExecutor : public RDFTExecutor {
 #endif
 
 struct RDFTRefExecutor : public RDFTExecutor {
-    RDFTRefExecutor(bool inverse) : RDFTExecutor(inverse) {}
+    explicit RDFTRefExecutor(bool inverse) : RDFTExecutor(inverse) {}
 
 private:
     std::vector<float> generateTwiddlesDFT(size_t inputSize, size_t outputSize, enum dft_type type) override {

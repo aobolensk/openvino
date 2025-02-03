@@ -87,7 +87,7 @@ template <>
 class AttributeAdapter<intel_cpu::brgemm_utils::BRGEMM_TYPE>
     : public EnumAttributeAdapterBase<intel_cpu::brgemm_utils::BRGEMM_TYPE> {
 public:
-    AttributeAdapter(intel_cpu::brgemm_utils::BRGEMM_TYPE& value)
+    explicit AttributeAdapter(intel_cpu::brgemm_utils::BRGEMM_TYPE& value)
         : EnumAttributeAdapterBase<intel_cpu::brgemm_utils::BRGEMM_TYPE>(value) {}
     OPENVINO_RTTI("AttributeAdapter<ov::intel_cpu::jit_brgemm_utils::BRGEMM_TYPE>");
 };

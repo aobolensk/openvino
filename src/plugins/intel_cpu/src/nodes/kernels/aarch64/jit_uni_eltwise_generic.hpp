@@ -71,7 +71,7 @@ struct jit_uni_eltwise_kernel {
     void operator()(const node::jit_eltwise_call_args_ptrs* const_args, const jit_eltwise_call_args_indexes* indexes);
 
     jit_uni_eltwise_kernel() {}
-    jit_uni_eltwise_kernel(jit_eltwise_params jep) : ker_(nullptr), jep_(std::move(jep)) {}
+    explicit jit_uni_eltwise_kernel(jit_eltwise_params jep) : ker_(nullptr), jep_(std::move(jep)) {}
     virtual ~jit_uni_eltwise_kernel() {}
 
     virtual void create_ker() = 0;

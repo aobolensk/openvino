@@ -67,8 +67,9 @@ public:
 
 #ifdef SNIPPETS_DEBUG_CAPS
     const char* info() const {
-        if (!info_.is_initialized())
+        if (!info_.is_initialized()) {
             info_.init(this);
+        }
         return info_.c_str();
     }
 #endif

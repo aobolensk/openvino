@@ -62,13 +62,13 @@ public:
                   "StaticDimension must have the same number of bytes as the CPU dimension type.");
 
     StaticShapeAdapter();
-    StaticShapeAdapter(const TDims& dims);
-    StaticShapeAdapter(TDims&& dims) noexcept;
+    explicit StaticShapeAdapter(const TDims& dims);
+    explicit StaticShapeAdapter(TDims&& dims) noexcept;
     StaticShapeAdapter(std::initializer_list<value_type> dims) noexcept : m_dims{dims.begin(), dims.end()} {};
-    StaticShapeAdapter(std::vector<value_type> dims) noexcept : m_dims(dims.begin(), dims.end()) {}
+    explicit StaticShapeAdapter(std::vector<value_type> dims) noexcept : m_dims(dims.begin(), dims.end()) {}
 
     StaticShapeAdapter(const StaticShape& other);
-    StaticShapeAdapter(const ov::PartialShape&);
+    explicit StaticShapeAdapter(const ov::PartialShape&);
 
     const TDims& operator*() const& noexcept {
         return m_dims;
@@ -220,13 +220,13 @@ public:
                   "StaticDimension must have the same number of bytes as the CPU dimension type.");
 
     constexpr StaticShapeAdapter() : m_dims{} {}
-    constexpr StaticShapeAdapter(const TDims& dims) : m_dims{&dims} {}
+    constexpr explicit StaticShapeAdapter(const TDims& dims) : m_dims{&dims} {}
     constexpr StaticShapeAdapter(const StaticShapeAdapter<const TDims>& other) : m_dims{other.m_dims} {}
 
-    StaticShapeAdapter(const StaticShape& shape);
-    StaticShapeAdapter(const ov::PartialShape&);
+    explicit StaticShapeAdapter(const StaticShape& shape);
+    explicit StaticShapeAdapter(const ov::PartialShape&);
 
-    operator StaticShape() const {
+    explicit operator StaticShape() const {
         return m_dims ? StaticShape(*m_dims) : StaticShape();
     }
 

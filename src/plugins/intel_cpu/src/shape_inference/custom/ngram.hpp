@@ -15,7 +15,7 @@ namespace node {
 using Result = IShapeInfer::Result;
 class NgramShapeInfer : public ShapeInferEmptyPads {
 public:
-    NgramShapeInfer(const size_t k) : m_k(k) {}
+    explicit NgramShapeInfer(const size_t k) : m_k(k) {}
     Result infer(const std::vector<std::reference_wrapper<const VectorDims>>& input_shapes,
                  const std::unordered_map<size_t, MemoryPtr>& data_dependency) override;
 
@@ -29,7 +29,7 @@ private:
 
 class NgramShapeInferFactory : public ShapeInferFactory {
 public:
-    NgramShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit NgramShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

@@ -35,7 +35,7 @@ private:
 
 class AdaptivePoolingShapeInferFactory : public ShapeInferFactory {
 public:
-    AdaptivePoolingShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
+    explicit AdaptivePoolingShapeInferFactory(std::shared_ptr<ov::Node> op) : m_op(std::move(op)) {}
     ShapeInferPtr makeShapeInfer() const override;
 
 private:

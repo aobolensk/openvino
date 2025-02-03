@@ -1953,7 +1953,7 @@ struct MHA {
 
     WorkItems _workitems;
 
-    MHA(MHAHelper<DATA_TYPE, KEY_CACHE_TYPE, VALUE_PREC>& helper) : _helper(helper) {}
+    explicit MHA(MHAHelper<DATA_TYPE, KEY_CACHE_TYPE, VALUE_PREC>& helper) : _helper(helper) {}
 
     // one loop to handle first and second tokens
     void exec_loop_mixed(const PlainTensor& q,

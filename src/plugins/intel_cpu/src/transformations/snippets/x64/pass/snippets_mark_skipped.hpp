@@ -17,7 +17,7 @@ namespace intel_cpu {
 class SnippetsMarkSkipped : public ov::pass::ModelPass {
 public:
     OPENVINO_MODEL_PASS_RTTI("SnippetsMarkSkipped");
-    SnippetsMarkSkipped(bool enableBF16 = false) : ModelPass(), enableBF16(enableBF16) {}
+    explicit SnippetsMarkSkipped(bool enableBF16 = false) : ModelPass(), enableBF16(enableBF16) {}
     bool run_on_model(const std::shared_ptr<ov::Model>&) override;
 
 private:

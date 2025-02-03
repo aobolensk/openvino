@@ -173,7 +173,7 @@ private:
 
 class MemoryManageNonOverlapingSets : public IMemoryManager {
 public:
-    MemoryManageNonOverlapingSets(std::vector<size_t> syncInds) : m_syncInds(std::move(syncInds)) {}
+    explicit MemoryManageNonOverlapingSets(std::vector<size_t> syncInds) : m_syncInds(std::move(syncInds)) {}
     void insert(const MemoryRegion& reg) override {
         MemorySolver::Box box = {reg.start, reg.finish, reg.size, reg.id};
         if (-1 != reg.finish) {

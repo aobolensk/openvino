@@ -92,7 +92,7 @@ struct ShlTensor : public ShlStructure<csinn_tensor*> {
         reset(tensor);
     }
 
-    ShlTensor(const ShlSession& session) {
+    explicit ShlTensor(const ShlSession& session) {
         csinn_tensor* tensor = csinn_alloc_tensor(session.get());
         OPENVINO_ASSERT(tensor != nullptr, "Failed to create csinn_tensor");
         reset(tensor);
@@ -183,7 +183,7 @@ struct ShlParams : public ShlStructure<T>, public IShlParams {
         this->reset(params);
     }
 
-    ShlParams(const ShlSession& session) {
+    explicit ShlParams(const ShlSession& session) {
         T params = static_cast<T>(csinn_alloc_params(sizeof(typename std::remove_pointer<T>::type), session.get()));
         OPENVINO_ASSERT(params != nullptr, "Failed to create csinn_params");
         this->reset(params);
@@ -243,7 +243,7 @@ struct ShlStructureTraits<csinn_relu_params*> {
 struct ShlReluParams : public ShlParams<csinn_relu_params*> {
     using ShlParams<csinn_relu_params*>::ShlParams;
 
-    ShlReluParams(float alpha) : ShlParams<csinn_relu_params*>() {
+    explicit ShlReluParams(float alpha) : ShlParams<csinn_relu_params*>() {
         auto params = static_cast<csinn_relu_params*>(this->get());
         params->n = alpha;
     }

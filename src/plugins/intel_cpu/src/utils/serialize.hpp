@@ -18,7 +18,7 @@ class ModelSerializer {
 public:
     typedef std::function<std::string(const std::string&)> CacheEncrypt;
 
-    ModelSerializer(std::ostream& ostream, CacheEncrypt encrypt_fn = {});
+    explicit ModelSerializer(std::ostream& ostream, CacheEncrypt encrypt_fn = {});
 
     void operator<<(const std::shared_ptr<ov::Model>& model);
 
