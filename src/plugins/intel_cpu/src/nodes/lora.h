@@ -21,7 +21,7 @@ public:
         return getType() == Type::LoRA;
     }
 
-    void getSupportedDescriptors() override{};
+    void getSupportedDescriptors() override {};
     void selectOptimalPrimitiveDescriptor() override;
     void createPrimitive() override;
     void prepareParams() override;

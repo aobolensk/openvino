@@ -499,8 +499,8 @@ void Partitioner::identifySubgraphs() {
                         input_desc.replace_source_output(new_param);
                     }
                 }  // if (is..)
-            }      // for (inputs)
-        }          // for (input_layers)
+            }  // for (inputs)
+        }  // for (input_layers)
         // Transform the accumulated parameters to the subgraph model's input parameter vector
         // Also track the connectivity
         LOG_VERB("Populating _parameters...");
@@ -842,9 +842,9 @@ void Partitioner::propagate(const std::string& func_name,
                     suitable_bank_iter->insert(this_layer_name);
                     layer_to_prototype[this_layer_name] = this_writer_proto;
                 }  // if(iter==end)
-            }      // test(node_ptr)
-        }          // for(ordered_ops)
-    }              // for(each)
+            }  // test(node_ptr)
+        }  // for(ordered_ops)
+    }  // for(each)
 }  // propagate
 
 void Partitioner::propagateSlices(const std::string& func_name) {
@@ -1545,8 +1545,8 @@ void Partitioner::createFunction(FunctionPipeline& func_ggg) {
                                                 << iport.second);
                 function._param_mapping[iport] = existing_param_idx;
             }  // if(Const|Parameter)
-        }      // for(inputs)
-    }          // for(nodes)
+        }  // for(inputs)
+    }  // for(nodes)
     funcall._closure.resize(funcall._lazy_closure.size());
     function._num_params_total = new_param_idx;
     function._model->validate_nodes_and_infer_types();
@@ -1699,7 +1699,7 @@ void Partitioner::matchRepeatedSubgraphs(const std::string& func_name) {
                         LazyTensor(std::static_pointer_cast<ov::op::v0::Constant>(input_node));  // (t)/1/c
                 }
             }  // for (inputs)
-        }      // for(nodes)
+        }  // for(nodes)
 
         // Write down the funcall to the list of subgraphs
         std::swap(funcall, this_sg);
@@ -2208,7 +2208,7 @@ ov::npuw::Partitioning ov::npuw::getPartitioning(const std::shared_ptr<ov::Model
             }
             gid++;
         }  // for(ens.groups)
-    }      // if(fcew.enabled)
+    }  // if(fcew.enabled)
 
     Partitioning P;
     P.total_gflops = ens.gflops;

@@ -61,7 +61,7 @@ public:
                 return true;
             })
         : Pattern(inputs, pred),
-          optional_types(type_infos){};
+          optional_types(type_infos) {};
 
     bool match_value(pattern::Matcher* matcher,
                      const Output<Node>& pattern_value,

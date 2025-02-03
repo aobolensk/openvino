@@ -258,8 +258,8 @@ ov::npuw::CompiledModel::CompiledModel(const std::shared_ptr<ov::Model>& model,
                         // Regardless of the order, if the reader is a function,
                         // remember that to avoid confusion in function prologue
                     }  // if(param == orig_param)
-                }      // for(orig_params)
-            }          // for(subgraph_params)
+                }  // for(orig_params)
+            }  // for(subgraph_params)
         };
         auto process_results = [&](const ov::ResultVector& _results) {
             for (size_t i = 0; i < _results.size(); i++) {
@@ -387,7 +387,7 @@ ov::npuw::CompiledModel::CompiledModel(const std::shared_ptr<ov::Model>& model,
             LOG_INFO("Wrote " << model_dump_path);
             // Note: keep here naming as it would be the subgraph
         }  // if(dump)
-    }      // for(orderedSubgraphs)
+    }  // for(orderedSubgraphs)
 
     std::map<std::size_t, std::string> forced_sub_devices{};
     std::string fsd_opt = m_cfg.get<::intel_npu::NPUW_SUBMODEL_DEVICE>();
@@ -864,7 +864,7 @@ std::string ov::npuw::CompiledModel::funcall_mem_device(const std::size_t idx) c
 void ov::npuw::CompiledModel::remove_long_output_names(const std::shared_ptr<ov::Model>& model) {
     NPUW_ASSERT(model.get() != nullptr);
     for (auto node : model->get_ordered_ops()) {
-        for (auto &&output : node->outputs()) {
+        for (auto&& output : node->outputs()) {
             const auto& tensor_names = output.get_tensor().get_names();
             if (tensor_names.size() > 32) {
                 LOG_VERB(model->get_friendly_name() << " output " << output << " exceeds the name limit, removing...");
