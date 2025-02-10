@@ -74,7 +74,13 @@ bool pass::BuildBrgemm::run(snippets::lowered::LinearIR& linear_ir,
                                         gemm_in0_desc->get_layout(),
                                         gemm_in1_desc->get_layout(),
                                         gemm_out_desc->get_layout());
-        loop_manager->get_loop_info(loop_ids.front())->set_work_amount(1);
+
+        auto old_increment = loop_manager->get_loop_info(loop_ids.front())->get_increment();
+        auto new_increment = old_increment * iter_count;
+        auto old_work_amount = loop_manager->get_loop_info(loop_ids.front())->get_work_amount();
+        auto new_work_amount = old_work_amount / iter_count;
+        loop_manager->get_loop_info(loop_ids.front())->set_increment(new_increment);
+        loop_manager->get_loop_info(loop_ids.front())->set_work_amount(new_work_amount);
 
         // Replace GemmCPU node with BrgemmCPU
         auto live_regs = expr->get_live_regs();
