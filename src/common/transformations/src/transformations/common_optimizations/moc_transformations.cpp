@@ -61,6 +61,7 @@
 #include "transformations/common_optimizations/reduce_reshape_fusion.hpp"
 #include "transformations/common_optimizations/relu_fake_quantize_fusion.hpp"
 #include "transformations/common_optimizations/remove_concat_zero_dim_input.hpp"
+#include "transformations/common_optimizations/remove_convert.hpp"
 #include "transformations/common_optimizations/remove_filtering_boxes_by_size.hpp"
 #include "transformations/common_optimizations/remove_multi_subgraph_op_dangling_params.hpp"
 #include "transformations/common_optimizations/reshape_sequence_fusion.hpp"
@@ -286,6 +287,7 @@ bool ov::pass::MOCTransformations::run_on_model(const std::shared_ptr<ov::Model>
     REGISTER_PASS(manager, ConstantFolding)
     REGISTER_PASS(manager, SymbolicOptimizations)
     REGISTER_PASS(manager, ResolveNameCollisions, true);
+    REGISTER_PASS(manager, RemoveConvert)
     manager.run_passes(f);
 
     if (!m_use_shapes) {

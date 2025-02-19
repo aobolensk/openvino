@@ -47,7 +47,6 @@ private:
     void MergeTransposeAndReorder(Graph& graph);
     void MergeReorderAndTranspose(Graph& graph);
     void reshapeRnnSeq(Graph& graph);
-    void RemoveSameConvert(Graph& graph);
     void RemoveMemoryInputConvert(Graph& graph);
     void RemoveConvertMemoryOutput(Graph& graph);
     void MatchSdpaKvCache(Graph& graph);
