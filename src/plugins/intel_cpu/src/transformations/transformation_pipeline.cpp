@@ -367,23 +367,29 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
     {
         // <name, in_index>
         static const std::multimap<std::string, size_t> inputs_to_extract {
-            {"name_1", 0}
+            {"MatMul_43576", 0},
+            {"MatMul_43576", 1},
+            {"__module.transformer_blocks.0.attn/aten::scaled_dot_product_attention/ScaledDotProductAttention", 1},
         };
         // <name, out_index>
         static const std::multimap<std::string, size_t> outputs_to_extract {
-            {"name_1", 0}
+            {"__module.transformer_blocks.0.attn/aten::scaled_dot_product_attention/ScaledDotProductAttention", 0},
         };
         std::vector<ov::Input<ov::Node>> subgraph_inputs;
         std::vector<ov::Output<ov::Node>> subgraph_outputs;
         for (const auto& n : model->get_ordered_ops()) {
             const auto& name = n->get_friendly_name();
             const auto input_range = inputs_to_extract.equal_range(name);
-            for (auto it = input_range.first; it != input_range.second; ++it)
+            for (auto it = input_range.first; it != input_range.second; ++it) {
+                fprintf(stderr, "Extracting input %s\n", name.c_str());
                 subgraph_inputs.push_back(n->input(it->second));
+            }
 
             const auto output_range = outputs_to_extract.equal_range(name);
-            for (auto it = output_range.first; it != output_range.second; ++it)
+            for (auto it = output_range.first; it != output_range.second; ++it) {
+                fprintf(stderr, "Extracting output %s\n", name.c_str());
                 subgraph_outputs.push_back(n->output(it->second));
+            }
         }
         const auto subgraph = extract_subgraph(model, subgraph_inputs, subgraph_outputs);
         ov::pass::Serialize(std::string("subgraph.xml"), std::string("subgraph.bin")).run_on_model(subgraph);
