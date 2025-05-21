@@ -45,17 +45,12 @@ std::ostream& operator <<(std::ostream& os, const InputShape& inputShape) {
 }
 
 void SubgraphBaseTest::run() {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
     is_reported = true;
-    bool isCurrentTestDisabled = ov::test::utils::current_test_is_disabled();
 
-    ov::test::utils::PassRate::Statuses status = isCurrentTestDisabled ?
-         ov::test::utils::PassRate::Statuses::SKIPPED :
-         ov::test::utils::PassRate::Statuses::CRASHED;
+    ov::test::utils::PassRate::Statuses status = ov::test::utils::PassRate::Statuses::CRASHED;
     summary.setDeviceName(targetDevice);
     summary.updateOPsStats(function, status, rel_influence_coef);
-
-    if (isCurrentTestDisabled)
-        GTEST_SKIP() << "Disabled test due to configuration" << std::endl;
 
     // in case of crash jump will be made and work will be continued
     auto crashHandler = std::unique_ptr<ov::test::utils::CrashHandler>(new ov::test::utils::CrashHandler());
@@ -135,16 +130,11 @@ void SubgraphBaseTest::serialize() {
 }
 
 void SubgraphBaseTest::query_model() {
-    bool isCurrentTestDisabled = ov::test::utils::current_test_is_disabled();
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
 
-    ov::test::utils::PassRate::Statuses status = isCurrentTestDisabled ?
-         ov::test::utils::PassRate::Statuses::SKIPPED :
-         ov::test::utils::PassRate::Statuses::CRASHED;
+    ov::test::utils::PassRate::Statuses status = ov::test::utils::PassRate::Statuses::CRASHED;
     summary.setDeviceName(targetDevice);
     summary.updateOPsStats(function, status, rel_influence_coef);
-
-    if (isCurrentTestDisabled)
-        GTEST_SKIP() << "Disabled test due to configuration" << std::endl;
 
     // in case of crash jump will be made and work will be continued
     auto crashHandler = std::unique_ptr<ov::test::utils::CrashHandler>(new ov::test::utils::CrashHandler());
@@ -194,16 +184,11 @@ void SubgraphBaseTest::query_model() {
 }
 
 void SubgraphBaseTest::import_export() {
-    bool isCurrentTestDisabled = ov::test::utils::current_test_is_disabled();
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
 
-    ov::test::utils::PassRate::Statuses status = isCurrentTestDisabled ?
-         ov::test::utils::PassRate::Statuses::SKIPPED :
-         ov::test::utils::PassRate::Statuses::CRASHED;
+    ov::test::utils::PassRate::Statuses status = ov::test::utils::PassRate::Statuses::CRASHED;
     summary.setDeviceName(targetDevice);
     summary.updateOPsStats(function, status, rel_influence_coef);
-
-    if (isCurrentTestDisabled)
-        GTEST_SKIP() << "Disabled test due to configuration" << std::endl;
 
     // in case of crash jump will be made and work will be continued
     auto crashHandler = std::unique_ptr<ov::test::utils::CrashHandler>(new ov::test::utils::CrashHandler());

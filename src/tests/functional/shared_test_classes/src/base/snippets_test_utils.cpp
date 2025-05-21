@@ -11,9 +11,7 @@ namespace ov {
 namespace test {
 namespace snippets {
 void SnippetsTestsCommon::validateNumSubgraphs() {
-    bool isCurrentTestDisabled = ov::test::utils::current_test_is_disabled();
-    if (isCurrentTestDisabled)
-        GTEST_SKIP() << "Disabled test due to configuration" << std::endl;
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
 
     const auto& compiled_model = compiledModel.get_runtime_model();
     size_t num_subgraphs = 0;
