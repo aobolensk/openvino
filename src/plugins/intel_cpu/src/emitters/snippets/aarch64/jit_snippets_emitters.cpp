@@ -39,6 +39,7 @@ jit_broadcast_move_emitter::jit_broadcast_move_emitter(jit_generator* h, cpu_isa
                               n->get_input_element_type(0),
                               " and ",
                               n->get_output_element_type(0));
+    std::cout << "Input element type: " << n->get_input_element_type(0) << std::endl;
     OV_CPU_JIT_EMITTER_ASSERT(n->get_input_element_type(0) == ov::element::f32, "Only supports FP32 precision.");
 
     byte_size = n->get_input_element_type(0).size();
