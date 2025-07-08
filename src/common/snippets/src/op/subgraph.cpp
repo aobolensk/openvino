@@ -59,6 +59,7 @@
 #include "snippets/lowered/pass/insert_specific_iterations.hpp"
 #include "snippets/lowered/pass/load_movebroadcast_to_broadcastload.hpp"
 #include "snippets/lowered/pass/mark_loops.hpp"
+#include "snippets/lowered/pass/memory_access_pattern_optimizer.hpp"
 #include "snippets/lowered/pass/move_result_out_of_loop.hpp"
 #include "snippets/lowered/pass/move_scalar_to_consumer.hpp"
 #include "snippets/lowered/pass/normalize_loop_ids.hpp"
@@ -527,6 +528,7 @@ void Subgraph::control_flow_transformations(
     pipeline.register_pass<lowered::pass::MoveScalarToConsumer>();
     pipeline.register_pass<lowered::pass::InsertBroadcastMove>();
     pipeline.register_pass<lowered::pass::LoadMoveBroadcastToBroadcastLoad>();
+    pipeline.register_pass<lowered::pass::MemoryAccessPatternOptimizer>();
     pipeline.register_pass<lowered::pass::ExtractLoopInvariants>();
     pipeline.register_pass<lowered::pass::ValidateShapes>();
     pipeline.register_pass<lowered::pass::ValidateUnifiedLoops>();
