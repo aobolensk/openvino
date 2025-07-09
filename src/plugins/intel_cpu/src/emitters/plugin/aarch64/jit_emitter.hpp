@@ -157,6 +157,10 @@ protected:
         }
     }
 
+    inline int32_t get_gpr_length() const {
+        return h->x0.getBit() / 8;
+    }
+
 private:
     mutable std::vector<size_t> preserved_vec_idxs;
     mutable std::vector<size_t> preserved_gpr_idxs;
@@ -178,10 +182,6 @@ private:
 
     static inline size_t get_asimd_vectors_count() {
         return 32;
-    }
-
-    inline int32_t get_gpr_length() const {
-        return h->x0.getBit() / 8;
     }
 
     void store_context(const std::vector<size_t>& gpr_regs,

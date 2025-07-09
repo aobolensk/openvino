@@ -30,15 +30,15 @@ bool AllocateBuffers::run(lowered::LinearIR& linear_ir,
 
     PassPipeline pipeline;
     pipeline.register_pass<ComputeBufferAllocationSize>();
-    if (m_is_optimized_mode) {
-        pipeline.register_pass<MarkInvariantShapePath>();
-        pipeline.register_pass<SetBufferRegGroup>();
-        pipeline.register_pass<DefineBufferClusters>();
-        pipeline.register_pass<SolveBufferMemory>(buffer_scratchpad_size);
-        pipeline.register_pass<NormalizeBufferRegisterGroups>();
-    } else {
+    // if (m_is_optimized_mode) {
+    //     pipeline.register_pass<MarkInvariantShapePath>();
+    //     pipeline.register_pass<SetBufferRegGroup>();
+    //     pipeline.register_pass<DefineBufferClusters>();
+    //     pipeline.register_pass<SolveBufferMemory>(buffer_scratchpad_size);
+    //     pipeline.register_pass<NormalizeBufferRegisterGroups>();
+    // } else {
         pipeline.register_pass<InitBuffersDefault>(buffer_scratchpad_size);
-    }
+    // }
     pipeline.register_pass<PropagateBufferOffset>();
     pipeline.run(linear_ir, linear_ir.cbegin(), linear_ir.cend());
 

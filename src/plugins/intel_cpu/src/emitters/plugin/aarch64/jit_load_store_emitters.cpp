@@ -22,6 +22,19 @@ namespace ov::intel_cpu::aarch64 {
 using jit_generator = dnnl::impl::cpu::aarch64::jit_generator;
 using cpu_isa_t = dnnl::impl::cpu::aarch64::cpu_isa_t;
 
+static const int ARM64_MAX_OFFSET = 4095;
+
+static inline void setup_safe_ptr(jit_generator* h, const XReg& base, int offset, const XReg& temp_reg, XReg& effective_base, int& effective_offset) {
+    if (offset >= 0 && offset <= ARM64_MAX_OFFSET) {
+        effective_base = base;
+        effective_offset = offset;
+    } else {
+        h->add_imm(temp_reg, base, offset, h->X_DEFAULT_ADDR);
+        effective_base = temp_reg;
+        effective_offset = 0;
+    }
+}
+
 jit_load_emitter::jit_load_emitter(dnnl::impl::cpu::aarch64::jit_generator* host,
                                    dnnl::impl::cpu::aarch64::cpu_isa_t host_isa,
                                    ov::element::Type src_prc,
@@ -54,24 +67,46 @@ void jit_load_emitter::load_qbyte(const std::vector<size_t>& in_idxs, const std:
     auto dst_s = SReg(out_idxs[0]);
     auto dst_d = DReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = src;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, src, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (load_num_) {
     case 0:
         break;
     case 1:
-        h->ldr(dst_s, ptr(src, byte_offset_));
+        h->ldr(dst_s, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->ldr(dst_d, ptr(src, byte_offset_));
+        h->ldr(dst_d, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->ldr(dst_d, ptr(src, byte_offset_));
-        h->add_imm(prc, src, byte_offset_ + 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->ldr(dst_d, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, src, byte_offset_ + 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        }
         h->ld1(dst.s[2], ptr(prc));
         break;
     }
     case 4:
-        h->uni_ldr(dst, src, byte_offset_);
+        if (needs_offset_reg) {
+            h->ldr(QReg(out_idxs[0]), ptr(effective_base, effective_offset));
+        } else {
+            h->uni_ldr(dst, src, byte_offset_);
+        }
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to load.");
@@ -87,24 +122,42 @@ void jit_load_emitter::load_dbyte(const std::vector<size_t>& in_idxs, const std:
     auto dst_s = SReg(out_idxs[0]);
     auto dst_d = DReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = src;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, src, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (load_num_) {
     case 0:
         break;
     case 1:
-        h->ldr(dst_h, ptr(src, byte_offset_));
+        h->ldr(dst_h, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->ldr(dst_s, ptr(src, byte_offset_));
+        h->ldr(dst_s, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->ldr(dst_s, ptr(src, byte_offset_));
-        h->add_imm(prc, src, byte_offset_ + 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->ldr(dst_s, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, src, byte_offset_ + 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        }
         h->ld1(dst.h[2], ptr(prc));
         break;
     }
     case 4:
-        h->ldr(dst_d, ptr(src, byte_offset_));
+        h->ldr(dst_d, ptr(effective_base, effective_offset));
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to load.");
@@ -120,24 +173,42 @@ void jit_load_emitter::load_byte(const std::vector<size_t>& in_idxs, const std::
     auto dst_h = HReg(out_idxs[0]);
     auto dst_s = SReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = src;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, src, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (load_num_) {
     case 0:
         break;
     case 1:
-        h->ldr(dst_b, ptr(src, byte_offset_));
+        h->ldr(dst_b, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->ldr(dst_h, ptr(src, byte_offset_));
+        h->ldr(dst_h, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->ldr(dst_h, ptr(src, byte_offset_));
-        h->add_imm(prc, src, byte_offset_ + 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->ldr(dst_h, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, src, byte_offset_ + 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        }
         h->ld1(dst.b[2], ptr(prc));
         break;
     }
     case 4:
-        h->ldr(dst_s, ptr(src, byte_offset_));
+        h->ldr(dst_s, ptr(effective_base, effective_offset));
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to load.");
@@ -169,11 +240,17 @@ void jit_load_emitter::emit_isa(const std::vector<size_t>& in_idxs, const std::v
 }
 
 size_t jit_load_emitter::get_aux_gprs_count() const {
+    size_t count = 0;
+    
     if (load_num_ == 3) {
-        return 1;
+        count++;
+    }
+    
+    if (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET) {
+        count++;
     }
 
-    return 0;
+    return count;
 }
 
 jit_store_emitter::jit_store_emitter(dnnl::impl::cpu::aarch64::jit_generator* host,
@@ -210,24 +287,42 @@ void jit_store_emitter::store_qbyte(const std::vector<size_t>& in_idxs, const st
     auto src_q = QReg(in_idxs[0]);
     auto dst = XReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = dst;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, dst, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (store_num_) {
     case 0:
         break;
     case 1:
-        h->str(src_s, ptr(dst, byte_offset_));
+        h->str(src_s, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->str(src_d, ptr(dst, byte_offset_));
+        h->str(src_d, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->str(src_d, ptr(dst, byte_offset_));
-        h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->str(src_d, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(float), h->X_DEFAULT_ADDR);
+        }
         h->st1(src.s[2], ptr(prc));
         break;
     }
     case 4:
-        h->str(src_q, ptr(dst, byte_offset_));
+        h->str(src_q, ptr(effective_base, effective_offset));
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to store.");
@@ -243,24 +338,42 @@ void jit_store_emitter::store_dbyte(const std::vector<size_t>& in_idxs, const st
     auto src_d = DReg(in_idxs[0]);
     auto dst = XReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = dst;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, dst, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (store_num_) {
     case 0:
         break;
     case 1:
-        h->str(src_h, ptr(dst, byte_offset_));
+        h->str(src_h, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->str(src_s, ptr(dst, byte_offset_));
+        h->str(src_s, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->str(src_s, ptr(dst, byte_offset_));
-        h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->str(src_s, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(uint16_t), h->X_DEFAULT_ADDR);
+        }
         h->st1(src.h[2], ptr(prc));
         break;
     }
     case 4:
-        h->str(src_d, ptr(dst, byte_offset_));
+        h->str(src_d, ptr(effective_base, effective_offset));
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to store.");
@@ -276,24 +389,42 @@ void jit_store_emitter::store_byte(const std::vector<size_t>& in_idxs, const std
     auto src_s = SReg(in_idxs[0]);
     auto dst = XReg(out_idxs[0]);
 
+    size_t aux_idx = 0;
+    XReg offset_reg = XReg(0);
+    bool needs_offset_reg = (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET);
+    
+    if (needs_offset_reg) {
+        offset_reg = XReg(aux_gpr_idxs[aux_idx++]);
+    }
+
+    XReg effective_base = dst;
+    int effective_offset = byte_offset_;
+    if (needs_offset_reg) {
+        setup_safe_ptr(h, dst, byte_offset_, offset_reg, effective_base, effective_offset);
+    }
+
     switch (store_num_) {
     case 0:
         break;
     case 1:
-        h->str(src_b, ptr(dst, byte_offset_));
+        h->str(src_b, ptr(effective_base, effective_offset));
         break;
     case 2:
-        h->str(src_h, ptr(dst, byte_offset_));
+        h->str(src_h, ptr(effective_base, effective_offset));
         break;
     case 3: {
-        auto prc = XReg(aux_gpr_idxs[0]);
-        h->str(src_h, ptr(dst, byte_offset_));
-        h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        auto prc = XReg(aux_gpr_idxs[aux_idx]);
+        h->str(src_h, ptr(effective_base, effective_offset));
+        if (needs_offset_reg) {
+            h->add_imm(prc, effective_base, 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        } else {
+            h->add_imm(prc, dst, byte_offset_ + 2 * sizeof(int8_t), h->X_DEFAULT_ADDR);
+        }
         h->st1(src.b[2], ptr(prc));
         break;
     }
     case 4:
-        h->str(src_s, ptr(dst, byte_offset_));
+        h->str(src_s, ptr(effective_base, effective_offset));
         break;
     default:
         OV_CPU_JIT_EMITTER_THROW("Unexpected number of elements to store.");
@@ -325,11 +456,17 @@ void jit_store_emitter::emit_isa(const std::vector<size_t>& in_idxs, const std::
 }
 
 size_t jit_store_emitter::get_aux_gprs_count() const {
+    size_t count = 0;
+    
     if (store_num_ == 3) {
-        return 1;
+        count++;
+    }
+    
+    if (byte_offset_ < 0 || byte_offset_ > ARM64_MAX_OFFSET) {
+        count++;
     }
 
-    return 0;
+    return count;
 }
 
 }  // namespace ov::intel_cpu::aarch64

@@ -49,13 +49,17 @@ KleidiGemm::KleidiGemm(size_t _M, size_t _N, size_t _K, size_t _lda, size_t _ldb
       nr(ukernel.get_nr()),
       kr(ukernel.get_kr()),
       sr(ukernel.get_sr()),
-      packedRHSsize(kai_get_rhs_packed_size_rhs_pack_kxn_f16p16x1biasf16_f16_f16_neon(_N, _K)) {};
+      packedRHSsize((_N > 0 && _K > 0) ? kai_get_rhs_packed_size_rhs_pack_kxn_f16p16x1biasf16_f16_f16_neon(_N, _K) : 0) {};
 
 const size_t KleidiGemm::get_packed_rhs_size() const {
     return packedRHSsize;
 }
 
 void KleidiGemm::packB(const float16_t* inp, const float16_t* bias, float16_t* packed_out) {
+    // Skip packing if any dimension is zero to avoid KAI kernel crashes
+    if (N == 0 || K == 0) {
+        return;
+    }
     // Packing only needs to be performed once if the contents of the bias and RHS matrices are expected to be constant.
     kai_run_rhs_pack_kxn_f16p16x1biasf16_f16_f16_neon(1,
                                                       N,
@@ -73,6 +77,10 @@ void KleidiGemm::packB(const float16_t* inp, const float16_t* bias, float16_t* p
 }
 
 void KleidiGemm::executeGemm(const void* a, const void* b, void* c) {
+    // Skip execution if any dimension is zero to avoid KAI kernel crashes
+    if (M == 0 || N == 0 || K == 0) {
+        return;
+    }
     const size_t m_step = ukernel.get_m_step();
     const size_t n_step = ukernel.get_n_step();
     for (size_t i_m_step = 0; i_m_step < M; i_m_step += m_step) {
