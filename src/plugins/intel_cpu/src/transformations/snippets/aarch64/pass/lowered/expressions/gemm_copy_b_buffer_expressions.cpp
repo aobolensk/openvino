@@ -66,9 +66,15 @@ void RepackedWeightsBufferExpression::init_allocation_size(
     }
     size_t n_block_num = N / n_block_size;
     size_t n_tail_size = N % n_block_size;
-    m_allocation_size = n_block_num * kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(n_block_size, K);
-    if (n_tail_size > 0) {
-        m_allocation_size += kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(n_tail_size, K);
+    
+    // Skip allocation if any dimension is zero to avoid KAI kernel crashes
+    if (n_block_size == 0 || K == 0) {
+        m_allocation_size = 0;
+    } else {
+        m_allocation_size = n_block_num * kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(n_block_size, K);
+        if (n_tail_size > 0) {
+            m_allocation_size += kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(n_tail_size, K);
+        }
     }
     // convert byte size to element type size
     m_allocation_size = m_allocation_size / element_type.size();

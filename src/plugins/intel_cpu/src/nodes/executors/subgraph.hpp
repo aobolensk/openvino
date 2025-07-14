@@ -154,16 +154,46 @@ protected:
                         const std::vector<ptrdiff_t>& start_offset_in,
                         const std::vector<ptrdiff_t>& start_offset_out) {
         call_args.init_external_ptrs(m_external_ptr_mappings.size());
+        
+        // INVESTIGATION: Track buffer allocation and detect aliasing at source
+        printf("BUFFER_ALLOC: init_call_args() called\n");
+        printf("BUFFER_ALLOC:   srcMemPtrs.size()=%zu, dstMemPtrs.size()=%zu\n", 
+               srcMemPtrs.size(), dstMemPtrs.size());
+        
         for (const auto& mapping : m_src_ptr_mappings) {
-            call_args.src_ptrs[mapping.postprocessed_idx] =
-                srcMemPtrs[mapping.original_idx]->getDataAs<const uint8_t>() + start_offset_in[mapping.original_idx];
+            uint8_t* base_ptr = srcMemPtrs[mapping.original_idx]->getDataAs<uint8_t>();
+            uint8_t* final_ptr = base_ptr + start_offset_in[mapping.original_idx];
+            call_args.src_ptrs[mapping.postprocessed_idx] = final_ptr;
+            printf("BUFFER_ALLOC:   src_ptrs[%zu] = %p (base=%p + offset=%ld)\n", 
+                   mapping.postprocessed_idx, static_cast<void*>(final_ptr), static_cast<void*>(base_ptr), start_offset_in[mapping.original_idx]);
         }
+        
         for (const auto& mapping : m_external_ptr_mappings) {
-            call_args.external_ptrs[mapping.postprocessed_idx] =
-                srcMemPtrs[mapping.original_idx]->getDataAs<const uint8_t>() + start_offset_in[mapping.original_idx];
+            uint8_t* base_ptr = srcMemPtrs[mapping.original_idx]->getDataAs<uint8_t>();
+            uint8_t* final_ptr = base_ptr + start_offset_in[mapping.original_idx];
+            call_args.external_ptrs[mapping.postprocessed_idx] = final_ptr;
+            printf("BUFFER_ALLOC:   external_ptrs[%zu] = %p (base=%p + offset=%ld)\n", 
+                   mapping.postprocessed_idx, static_cast<void*>(final_ptr), static_cast<void*>(base_ptr), start_offset_in[mapping.original_idx]);
         }
+        
         for (size_t i = 0; i < dstMemPtrs.size(); i++) {
-            call_args.dst_ptrs[i] = dstMemPtrs[i]->getDataAs<uint8_t>() + start_offset_out[i];
+            uint8_t* base_ptr = dstMemPtrs[i]->getDataAs<uint8_t>();
+            uint8_t* final_ptr = base_ptr + start_offset_out[i];
+            call_args.dst_ptrs[i] = final_ptr;
+            printf("BUFFER_ALLOC:   dst_ptrs[%zu] = %p (base=%p + offset=%ld)\n", 
+                   i, static_cast<void*>(final_ptr), static_cast<void*>(base_ptr), start_offset_out[i]);
+        }
+        
+        // CRITICAL: Check for aliasing between any src and dst pointers
+        for (size_t src_idx = 0; src_idx < m_src_ptr_mappings.size(); src_idx++) {
+            for (size_t dst_idx = 0; dst_idx < dstMemPtrs.size(); dst_idx++) {
+                if (call_args.src_ptrs[src_idx] == call_args.dst_ptrs[dst_idx]) {
+                    printf("BUFFER_ALLOC: ERROR - ALIASING DETECTED: src_ptrs[%zu] == dst_ptrs[%zu] = %p\n", 
+                           src_idx, dst_idx, call_args.src_ptrs[src_idx]);
+                    printf("BUFFER_ALLOC: ERROR - This will cause memory corruption in GEMM operations\n");
+                    // Don't throw here to allow analysis, but mark the issue
+                }
+            }
         }
     }
 };

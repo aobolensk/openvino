@@ -15,7 +15,7 @@ std::tuple<size_t, size_t, size_t> GemmCPUBlocking::get_blocking_params(
 
     const auto [m, n, k] = get_brgemm_dimensions(gemm_expr);
 
-    const size_t& default_m_blk = 32;
+    const size_t& default_m_blk = 64;
     const size_t& default_n_blk = 64;
 
     const size_t& m_blk = get_corrected_blk_size_by_dim(m, default_m_blk);

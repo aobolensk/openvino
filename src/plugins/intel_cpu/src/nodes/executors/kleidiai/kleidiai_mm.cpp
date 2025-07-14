@@ -5,6 +5,7 @@
 #include "kleidiai_mm.hpp"
 
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <memory>
 
@@ -64,6 +65,12 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
     auto weiDims = weiMem->getDesc().getShape().getDims();
     auto N = weiDims[0];
     auto K = weiDims[1];
+    
+    std::cerr << "MatMulKleidiAIExecutor::Constructor - N=" << N << ", K=" << K << 
+                 ", src_precision=" << srcMem->getPrecision() << 
+                 ", wei_precision=" << weiMem->getPrecision() <<
+                 ", weightsNonTransposed=" << attrs.weightsNonTransposed <<
+                 ", dynamicQuantizationGroupSize=" << attrs.dynamicQuantizationGroupSize << std::endl;
 
     if (memory.at(ARG_BIAS)->getDataAs<float>() == nullptr) {
         auto biasDesc = std::make_shared<CpuBlockedMemoryDesc>(f32, Shape({N}));
@@ -83,13 +90,24 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
 
     // Whether dynamic quantization is enabled
     useDynamicQuant = useDynamicQuantizationImpl(attrs, originalWeightsDesc);
+    std::cerr << "MatMulKleidiAIExecutor::Constructor - useDynamicQuant=" << useDynamicQuant << std::endl;
 
     if (!useDynamicQuant) {
         auto dstDesc = originalWeightsDesc->cloneWithNewPrecision(memory.at(ARG_SRC)->getDescPtr()->getPrecision());
         auto dnnlDstDesc = MemoryDescUtils::convertToDnnlMemoryDesc(dstDesc);
         packedWeights = acl_fc_executor::reorderWeights(memory, context, aclfcAttrs, dnnlSrcDesc, dnnlDstDesc);
 
+        // Skip packing if any dimension is zero to avoid KAI kernel crashes
+        if (N == 0 || K == 0) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping f32 packing due to zero dimensions: N=" << N << ", K=" << K << std::endl;
+            return;
+        }
         const size_t rhsPackedSize = kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(N, K);
+        std::cerr << "MatMulKleidiAIExecutor::Constructor - f32 rhsPackedSize=" << rhsPackedSize << " for N=" << N << ", K=" << K << std::endl;
+        if (rhsPackedSize == 0) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping f32 packing due to zero rhsPackedSize" << std::endl;
+            return;
+        }
         auto rhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(u8, Shape({rhsPackedSize}));
         rhsPackedMem = std::make_shared<Memory>(context->getEngine(), rhsPackedDesc);
 
@@ -101,20 +119,32 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
         const size_t nr = ukernel_f32.get_nr();
         const size_t kr = ukernel_f32.get_kr();
         const size_t sr = ukernel_f32.get_sr();
+        std::cerr << "MatMulKleidiAIExecutor::Constructor - f32 ukernel params: nr=" << nr << ", kr=" << kr << ", sr=" << sr << std::endl;
 
-        kai_run_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(1,
-                                                         N,
-                                                         K,
-                                                         nr,
-                                                         kr,
-                                                         sr,          // Packing arguments
-                                                         rhs_stride,  // RHS stride
-                                                         rhs,         // RHS
-                                                         bias,        // Bias
-                                                         nullptr,     // Scale
-                                                         rhs_packed,  // RHS packed
-                                                         0,
-                                                         nullptr);
+        // Additional safety check before calling KAI packing function
+        if (N > 0 && K > 0 && rhs_packed != nullptr && rhs != nullptr && bias != nullptr) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Calling kai_run_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon with:" <<
+                         " N=" << N << ", K=" << K << ", nr=" << nr << ", kr=" << kr << ", sr=" << sr << ", rhs_stride=" << rhs_stride <<
+                         ", rhs=" << static_cast<void*>(rhs) << ", bias=" << static_cast<void*>(bias) << ", rhs_packed=" << static_cast<void*>(rhs_packed) << std::endl;
+            kai_run_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(1,
+                                                             N,
+                                                             K,
+                                                             nr,
+                                                             kr,
+                                                             sr,          // Packing arguments
+                                                             rhs_stride,  // RHS stride
+                                                             rhs,         // RHS
+                                                             bias,        // Bias
+                                                             nullptr,     // Scale
+                                                             rhs_packed,  // RHS packed
+                                                             0,
+                                                             nullptr);
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Completed kai_run_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon" << std::endl;
+        } else {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping f32 packing due to safety check failure:" <<
+                         " N=" << N << ", K=" << K << ", rhs_packed=" << static_cast<void*>(rhs_packed) << 
+                         ", rhs=" << static_cast<void*>(rhs) << ", bias=" << static_cast<void*>(bias) << std::endl;
+        }
     } else {
         MemoryPtr weightsMemory = memory.at(ARG_WEI);
         if (!attrs.weightsNonTransposed) {
@@ -127,31 +157,57 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
         nr = ukernel_i8.get_nr();
         kr = ukernel_i8.get_kr();
         sr = ukernel_i8.get_sr();
+        std::cerr << "MatMulKleidiAIExecutor::Constructor - i8 ukernel params: mr=" << mr << ", nr=" << nr << ", kr=" << kr << ", sr=" << sr << std::endl;
 
         float* bias = biasMem->getDataAs<float>();
         int8_t* rhs_native_qs8cx = weightsMemory->getDataAs<int8_t>();
         float* rhs_scales = static_cast<float*>(memory.at(ARG_WEI | ARG_ATTR_SCALES)->getData());
 
+        // Skip packing if any dimension is zero to avoid KAI kernel crashes
+        if (N == 0 || K == 0) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping i8 packing due to zero dimensions: N=" << N << ", K=" << K << std::endl;
+            return;
+        }
         const size_t rhsPackedSize = kai_get_rhs_packed_size_rhs_pack_kxn_qsi8cxp_qsi8cx_neon(N, K, nr, kr, sr);
+        std::cerr << "MatMulKleidiAIExecutor::Constructor - i8 rhsPackedSize=" << rhsPackedSize << " for N=" << N << ", K=" << K << ", nr=" << nr << ", kr=" << kr << ", sr=" << sr << std::endl;
+        if (rhsPackedSize == 0) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping i8 packing due to zero rhsPackedSize" << std::endl;
+            return;
+        }
         auto rhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape({rhsPackedSize}));
         rhsPackedMem = std::make_shared<Memory>(context->getEngine(), rhsPackedDesc);
         int8_t* rhs_packed_qs8cx = static_cast<int8_t*>(rhsPackedMem->getData());
 
         kai_rhs_pack_qsi8cx_params params;
         params.lhs_zero_point = 1;
+        std::cerr << "MatMulKleidiAIExecutor::Constructor - i8 packing params: lhs_zero_point=" << params.lhs_zero_point << std::endl;
 
-        kai_run_rhs_pack_kxn_qsi8cxp_qsi8cx_neon(1,
-                                                 N,
-                                                 K,
-                                                 nr,
-                                                 kr,
-                                                 sr,
-                                                 rhs_native_qs8cx,
-                                                 bias,
-                                                 rhs_scales,
-                                                 rhs_packed_qs8cx,
-                                                 0,
-                                                 &params);
+        // Additional safety check before calling KAI packing function
+        if (N > 0 && K > 0 && rhs_packed_qs8cx != nullptr && rhs_native_qs8cx != nullptr && bias != nullptr && rhs_scales != nullptr) {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Calling kai_run_rhs_pack_kxn_qsi8cxp_qsi8cx_neon with:" <<
+                         " N=" << N << ", K=" << K << ", nr=" << nr << ", kr=" << kr << ", sr=" << sr <<
+                         ", rhs_native_qs8cx=" << static_cast<void*>(rhs_native_qs8cx) << ", bias=" << static_cast<void*>(bias) <<
+                         ", rhs_scales=" << static_cast<void*>(rhs_scales) << ", rhs_packed_qs8cx=" << static_cast<void*>(rhs_packed_qs8cx) <<
+                         ", lhs_zero_point=" << params.lhs_zero_point << std::endl;
+            kai_run_rhs_pack_kxn_qsi8cxp_qsi8cx_neon(1,
+                                                     N,
+                                                     K,
+                                                     nr,
+                                                     kr,
+                                                     sr,
+                                                     rhs_native_qs8cx,
+                                                     bias,
+                                                     rhs_scales,
+                                                     rhs_packed_qs8cx,
+                                                     0,
+                                                     &params);
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Completed kai_run_rhs_pack_kxn_qsi8cxp_qsi8cx_neon" << std::endl;
+        } else {
+            std::cerr << "MatMulKleidiAIExecutor::Constructor - Skipping i8 packing due to safety check failure:" <<
+                         " N=" << N << ", K=" << K << ", rhs_packed_qs8cx=" << static_cast<void*>(rhs_packed_qs8cx) <<
+                         ", rhs_native_qs8cx=" << static_cast<void*>(rhs_native_qs8cx) << ", bias=" << static_cast<void*>(bias) <<
+                         ", rhs_scales=" << static_cast<void*>(rhs_scales) << std::endl;
+        }
 
         // Create scratchpad to initialize memory for LHS in update()
         scratchPad = context->getScratchPad();
@@ -167,6 +223,8 @@ bool MatMulKleidiAIExecutor::update(const MemoryArgs& memory) {
     // the weight is reshaped to [-1, K] in ConvertMatMulToFC
     K = wgtDims[1];
     N = wgtDims[0];
+    
+    std::cerr << "MatMulKleidiAIExecutor::update - Weight dimensions: K=" << K << ", N=" << N << std::endl;
 
     const auto& outDims = dstDesc->getShape().getStaticDims();
     if (outDims.size() > 2) {
@@ -174,11 +232,23 @@ bool MatMulKleidiAIExecutor::update(const MemoryArgs& memory) {
     } else {
         M = outDims[0];
     }
+    
+    std::cerr << "MatMulKleidiAIExecutor::update - Output dimensions: M=" << M << ", outDims.size()=" << outDims.size() << std::endl;
     // Assign LHS memory
     if (useDynamicQuant) {
-        const size_t lhsPackedSize = kai_get_lhs_packed_size_lhs_quant_pack_qai8dxp_f32(M, K, mr, kr, sr);
-        auto lhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape({lhsPackedSize}));
-        lhsPackedMem = scratchPad->createScratchPadMem(lhsPackedDesc);
+        std::cerr << "MatMulKleidiAIExecutor::update - Setting up dynamic quantization LHS memory" << std::endl;
+        // Skip allocation if any dimension is zero to avoid KAI kernel crashes
+        if (M > 0 && K > 0) {
+            const size_t lhsPackedSize = kai_get_lhs_packed_size_lhs_quant_pack_qai8dxp_f32(M, K, mr, kr, sr);
+            std::cerr << "MatMulKleidiAIExecutor::update - LHS packed size=" << lhsPackedSize << " for M=" << M << ", K=" << K << ", mr=" << mr << ", kr=" << kr << ", sr=" << sr << std::endl;
+            auto lhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape({lhsPackedSize}));
+            lhsPackedMem = scratchPad->createScratchPadMem(lhsPackedDesc);
+            std::cerr << "MatMulKleidiAIExecutor::update - Created LHS packed memory: " << static_cast<void*>(lhsPackedMem->getData()) << std::endl;
+        } else {
+            std::cerr << "MatMulKleidiAIExecutor::update - Skipping LHS allocation due to zero dimensions: M=" << M << ", K=" << K << std::endl;
+        }
+    } else {
+        std::cerr << "MatMulKleidiAIExecutor::update - Not using dynamic quantization" << std::endl;
     }
     return true;
 }
@@ -192,6 +262,9 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
     auto M = srcDims[0];
     auto K = srcDims[1];
     auto N = weiDims[0];
+    
+    std::cerr << "MatMulKleidiAIExecutor::execute - Dimensions: M=" << M << ", K=" << K << ", N=" << N <<
+                 ", useDynamicQuant=" << useDynamicQuant << std::endl;
 
     const size_t lhs_stride = K * sizeof(float);
     const size_t dst_stride_row = N * sizeof(float);
@@ -200,6 +273,10 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
     float* dst = dstMem->getDataAs<float>();
 
     size_t n_blocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    
+    std::cerr << "MatMulKleidiAIExecutor::execute - Memory layout: lhs_stride=" << lhs_stride << ", dst_stride_row=" << dst_stride_row <<
+                 ", dst_stride_col=" << dst_stride_col << ", n_blocks=" << n_blocks << ", BLOCK_SIZE=" << BLOCK_SIZE <<
+                 ", lhs=" << static_cast<void*>(lhs) << ", dst=" << static_cast<void*>(dst) << std::endl;
 
     if (!useDynamicQuant) {
         float* rhs_packed = static_cast<float*>(rhsPackedMem->getData());
@@ -208,10 +285,21 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
             size_t n_start = (n_block * BLOCK_SIZE);
             size_t n_end = std::min(n_start + BLOCK_SIZE, N);
             size_t n_block_size = n_end - n_start;
+            // Skip execution if any dimension is zero to avoid KAI kernel crashes
+            if (M == 0 || n_block_size == 0 || K == 0) {
+                std::cerr << "MatMulKleidiAIExecutor::execute - Skipping f32 matmul block due to zero dimensions: M=" << M << ", n_block_size=" << n_block_size << ", K=" << K << std::endl;
+                return;
+            }
+            
             const size_t rhs_packed_offset = ukernel_f32.get_rhs_packed_offset(n_start, K);
             const size_t dst_offset = ukernel_f32.get_dst_offset(0, n_start, dst_stride_row);
             const float* rhs_ptr = (rhs_packed + rhs_packed_offset / sizeof(float));
             float* dst_ptr = (dst + dst_offset / (sizeof(float)));
+            
+            std::cerr << "MatMulKleidiAIExecutor::execute - f32 matmul block " << n_block << ": n_start=" << n_start << ", n_end=" << n_end << ", n_block_size=" << n_block_size <<
+                         ", rhs_packed_offset=" << rhs_packed_offset << ", dst_offset=" << dst_offset <<
+                         ", rhs_ptr=" << static_cast<const void*>(rhs_ptr) << ", dst_ptr=" << static_cast<void*>(dst_ptr) << std::endl;
+            
             ukernel_f32.run_matmul(M,
                                    n_block_size,
                                    K,
@@ -229,16 +317,26 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
         int8_t* lhs_packed_qa8dx = lhsPackedMem->getDataAs<int8_t>();
         int8_t* rhs_packed_qs8cx = rhsPackedMem->getDataAs<int8_t>();
 
-        kai_run_lhs_quant_pack_qai8dxp_f32(M,
-                                           K,  // Dimensions
-                                           mr,
-                                           kr,
-                                           sr,
-                                           0,                // Packing dimensions
-                                           lhs,              // LHS (F32)
-                                           lhs_stride,       // LHS stride
-                                           lhs_packed_qa8dx  // LHS packed
-        );
+        // Skip LHS packing if any dimension is zero to avoid KAI kernel crashes
+        if (M > 0 && K > 0) {
+            std::cerr << "MatMulKleidiAIExecutor::execute - Calling kai_run_lhs_quant_pack_qai8dxp_f32 with:" <<
+                         " M=" << M << ", K=" << K << ", mr=" << mr << ", kr=" << kr << ", sr=" << sr <<
+                         ", lhs=" << static_cast<void*>(lhs) << ", lhs_stride=" << lhs_stride <<
+                         ", lhs_packed_qa8dx=" << static_cast<void*>(lhs_packed_qa8dx) << std::endl;
+            kai_run_lhs_quant_pack_qai8dxp_f32(M,
+                                               K,  // Dimensions
+                                               mr,
+                                               kr,
+                                               sr,
+                                               0,                // Packing dimensions
+                                               lhs,              // LHS (F32)
+                                               lhs_stride,       // LHS stride
+                                               lhs_packed_qa8dx  // LHS packed
+            );
+            std::cerr << "MatMulKleidiAIExecutor::execute - Completed kai_run_lhs_quant_pack_qai8dxp_f32" << std::endl;
+        } else {
+            std::cerr << "MatMulKleidiAIExecutor::execute - Skipping LHS packing due to zero dimensions: M=" << M << ", K=" << K << std::endl;
+        }
 
         const size_t lhs_packed_offset = ukernel_i8.get_lhs_packed_offset(0, K);
         const void* lhs_ptr = static_cast<const void*>(lhs_packed_qa8dx + lhs_packed_offset);
@@ -247,10 +345,21 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
             size_t n_start = (n_block * BLOCK_SIZE);
             size_t n_end = std::min(n_start + BLOCK_SIZE, N);
             size_t n_block_size = n_end - n_start;
+            // Skip execution if any dimension is zero to avoid KAI kernel crashes
+            if (M == 0 || n_block_size == 0 || K == 0) {
+                std::cerr << "MatMulKleidiAIExecutor::execute - Skipping i8 matmul block due to zero dimensions: M=" << M << ", n_block_size=" << n_block_size << ", K=" << K << std::endl;
+                return;
+            }
+            
             const size_t rhs_packed_offset = ukernel_i8.get_rhs_packed_offset(n_start, K);
             const size_t dst_offset = ukernel_i8.get_dst_offset(0, n_start, dst_stride_row);
             const void* rhs_ptr = static_cast<const void*>(rhs_packed_qs8cx + rhs_packed_offset);
             float* dst_ptr = (dst + dst_offset / sizeof(float));
+            
+            std::cerr << "MatMulKleidiAIExecutor::execute - i8 matmul block " << n_block << ": n_start=" << n_start << ", n_end=" << n_end << ", n_block_size=" << n_block_size <<
+                         ", rhs_packed_offset=" << rhs_packed_offset << ", dst_offset=" << dst_offset <<
+                         ", lhs_ptr=" << lhs_ptr << ", rhs_ptr=" << rhs_ptr << ", dst_ptr=" << static_cast<void*>(dst_ptr) << std::endl;
+            
             ukernel_i8.run_matmul(M,
                                   n_block_size,
                                   K,

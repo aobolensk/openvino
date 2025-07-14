@@ -295,40 +295,81 @@ void jit_emitter::restore_context(const std::unordered_set<size_t>& ignore_vec_r
 void jit_emitter::restore_context(const std::vector<size_t>& gpr_regs,
                                   const std::vector<size_t>& vec_regs,
                                   const std::unordered_set<size_t>& ignore_vec_regs) const {
-    // 1. SIMD and Floating-Point registers
-    // 1.1. restore the remaining register
-    auto v_last = (vec_regs.size() - ignore_vec_regs.size()) % 2;
-    if (v_last != 0) {
-        for (size_t i = 0; i < vec_regs.size(); i++) {
-            const auto reg_idx = vec_regs.size() - 1 - i;
-            if (ignore_vec_regs.find(reg_idx) != ignore_vec_regs.end()) {
-                v_last++;
+    // // 1. SIMD and Floating-Point registers
+    // // 1.1. restore the remaining register
+    // auto v_last = (vec_regs.size() - ignore_vec_regs.size()) % 2;
+    // if (v_last != 0) {
+    //     for (size_t i = 0; i < vec_regs.size(); i++) {
+    //         const auto reg_idx = vec_regs.size() - 1 - i;
+    //         if (ignore_vec_regs.find(reg_idx) != ignore_vec_regs.end()) {
+    //             v_last++;
+    //             continue;
+    //         }
+
+    //         h->ldr(Xbyak_aarch64::QReg(reg_idx), post_ptr(h->sp, get_vec_length()));
+    //         break;
+    //     }
+    // }
+    // // 1.2. restore pair registers
+    // size_t ignore_registers_count = 0;
+    // int prev_reg_idx = -1;
+    // for (size_t i = v_last; i < vec_regs.size(); i++) {
+    //     const auto reg_idx = vec_regs.size() - 1 - i;
+    //     if (ignore_vec_regs.find(reg_idx) != ignore_vec_regs.end()) {
+    //         ignore_registers_count++;
+    //         continue;
+    //     }
+    //     if (prev_reg_idx == -1) {
+    //         prev_reg_idx = static_cast<int>(reg_idx);
+    //         continue;
+    //     }
+    //     h->ldp(Xbyak_aarch64::QReg(reg_idx), Xbyak_aarch64::QReg(prev_reg_idx), post_ptr(h->sp, get_vec_length() * 2));
+    //     prev_reg_idx = -1;
+    // }
+
+    // OPENVINO_ASSERT(ignore_registers_count == ignore_vec_regs.size(),
+    //                 "ignored registers size is not equal actual ignored registers count");
+
+    // 1.1/1.2. restore saved SIMD/Floating-Point registers (handles both pairing and an odd leftover)
+    size_t ignore_count = 0;
+    size_t offset       = 0;
+    const size_t total = vec_regs.size();
+    const size_t saved = total - ignore_vec_regs.size();
+
+    // If there's an odd leftover, pop it first:
+    if (saved % 2 == 1) {
+        for (; offset < total; ++offset) {
+            const auto idx = total - 1 - offset;
+            if (ignore_vec_regs.count(idx)) {
+                ++ignore_count;
                 continue;
             }
-
-            h->ldr(Xbyak_aarch64::QReg(reg_idx), post_ptr(h->sp, get_vec_length()));
+            h->ldr(Xbyak_aarch64::QReg(idx), post_ptr(h->sp, get_vec_length()));
+            ++offset;  // account for the one we just popped
             break;
         }
     }
-    // 1.2. restore pair registers
-    size_t ignore_registers_count = 0;
+
     int prev_reg_idx = -1;
-    for (size_t i = v_last; i < vec_regs.size(); i++) {
-        const auto reg_idx = vec_regs.size() - 1 - i;
-        if (ignore_vec_regs.find(reg_idx) != ignore_vec_regs.end()) {
-            ignore_registers_count++;
+    // Now pop all remaining regs in pairs, in reverse order
+    for (size_t i = offset; i < total; ++i) {
+        const auto idx = total - 1 - i;
+        if (ignore_vec_regs.count(idx)) {
+            ++ignore_count;
             continue;
         }
-        if (prev_reg_idx == -1) {
-            prev_reg_idx = static_cast<int>(reg_idx);
-            continue;
+        if (prev_reg_idx < 0) {
+            prev_reg_idx = static_cast<int>(idx);
+        } else {
+            h->ldp(Xbyak_aarch64::QReg(idx), Xbyak_aarch64::QReg(prev_reg_idx),
+                   post_ptr(h->sp, get_vec_length() * 2));
+            prev_reg_idx = -1;
         }
-        h->ldp(Xbyak_aarch64::QReg(reg_idx), Xbyak_aarch64::QReg(prev_reg_idx), post_ptr(h->sp, get_vec_length() * 2));
-        prev_reg_idx = -1;
     }
 
-    OPENVINO_ASSERT(ignore_registers_count == ignore_vec_regs.size(),
-                    "ignored registers size is not equal actual ignored registers count");
+    OPENVINO_ASSERT(ignore_count == ignore_vec_regs.size(),
+                    "ignored registers size is not equal to actual ignored registers count");
+
 
     // 2. General-purpose Registers
     // 2.1. restore the remaining register

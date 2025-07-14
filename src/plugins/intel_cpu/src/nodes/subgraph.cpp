@@ -411,11 +411,34 @@ void Subgraph::createPrimitive() {
 void Subgraph::initMemoryPtrs() {
     srcMemPtrs.resize(input_num);
     dstMemPtrs.resize(output_num);
+    
+    // INVESTIGATION: Track memory pointer allocation at the node level
+    printf("MEMORY_INIT: Subgraph::initMemoryPtrs() called\n");
+    printf("MEMORY_INIT:   input_num=%zu, output_num=%zu\n", input_num, output_num);
+    
     for (size_t i = 0; i < input_num; i++) {
         srcMemPtrs[i] = getSrcMemoryAtPort(i);
+        void* ptr = srcMemPtrs[i]->getDataAs<void>();
+        printf("MEMORY_INIT:   srcMemPtrs[%zu] = %p (MemoryPtr=%p)\n", i, ptr, srcMemPtrs[i].get());
     }
     for (size_t i = 0; i < output_num; i++) {
         dstMemPtrs[i] = getDstMemoryAtPort(i);
+        void* ptr = dstMemPtrs[i]->getDataAs<void>();
+        printf("MEMORY_INIT:   dstMemPtrs[%zu] = %p (MemoryPtr=%p)\n", i, ptr, dstMemPtrs[i].get());
+    }
+    
+    // CRITICAL: Check for memory aliasing at the node level
+    for (size_t src_idx = 0; src_idx < input_num; src_idx++) {
+        for (size_t dst_idx = 0; dst_idx < output_num; dst_idx++) {
+            void* src_ptr = srcMemPtrs[src_idx]->getDataAs<void>();
+            void* dst_ptr = dstMemPtrs[dst_idx]->getDataAs<void>();
+            if (src_ptr == dst_ptr) {
+                printf("MEMORY_INIT: ERROR - NODE LEVEL ALIASING: srcMemPtrs[%zu] == dstMemPtrs[%zu] = %p\n", 
+                       src_idx, dst_idx, src_ptr);
+                printf("MEMORY_INIT: ERROR - Same memory object reused for input and output at graph level\n");
+                printf("MEMORY_INIT: ERROR - This causes GEMM corruption when input and output should be separate\n");
+            }
+        }
     }
 }
 
@@ -866,6 +889,23 @@ bool Subgraph::canBeInPlace() const {
             }
         }
     }
+
+    // Check if the subgraph contains GEMM operations
+    // Disable buffer reuse optimization for GEMM operations to prevent memory aliasing
+    if (subgraph_attrs && subgraph_attrs->snippet) {
+        auto body = subgraph_attrs->snippet->body_ptr();
+        for (const auto& op : body->get_ops()) {
+            const std::string type_name = op->get_type_name();
+            // Check for GEMM-related operations that could have memory aliasing issues
+            if (type_name == "GemmCPU" || type_name == "Brgemm" || 
+                type_name == "BrgemmCPU" || type_name == "BrgemmCopyB" || 
+                type_name == "GemmCopyB") {
+                printf("DEBUG: Disabling buffer reuse for subgraph containing %s operation\n", type_name.c_str());
+                return false;
+            }
+        }
+    }
+
     return getInputShapeAtPort(0) == getOutputShapeAtPort(0);
 }
 

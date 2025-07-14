@@ -11,7 +11,12 @@ namespace ov {
 struct DefaultAllocator {
     void* allocate(const size_t bytes, const size_t alignment) {
         if (alignment == alignof(max_align_t)) {
-            return ::operator new(bytes);
+            fprintf(stderr, "Allocating %zu bytes with default alignment %zu\n", bytes, alignment);
+            fflush(stderr);
+            auto ptr = ::operator new(bytes);
+            fprintf(stderr, "Allocating, result ptr: %p\n", ptr);
+            fflush(stderr);
+            return ptr;
         } else {
             OPENVINO_ASSERT(alignment && !static_cast<bool>(alignment & (alignment - static_cast<size_t>(1))),
                             "Alignment is not power of 2: ",
@@ -30,7 +35,9 @@ struct DefaultAllocator {
 
     void deallocate(void* handle, const size_t bytes, const size_t alignment) noexcept {
         if (alignment == alignof(max_align_t)) {
+            fprintf(stderr, "Deallocating %zu bytes with default alignment %zu, ptr: %p\n", bytes, alignment, handle);
             ::operator delete(handle);
+            fprintf(stderr, "Deallocated, ptr: %p\n", handle);
         } else {
 #if defined(_WIN32)
             return _aligned_free(handle);
