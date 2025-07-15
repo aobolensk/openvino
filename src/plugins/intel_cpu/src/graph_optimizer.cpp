@@ -723,9 +723,7 @@ void GraphOptimizer::FuseMultiplyAndAdd(Graph& graph) {
 void GraphOptimizer::MergeEltwiseAndConvert(Graph& graph) {
 // The pass is enabled on arm platforms only, however it might be usefull for other platforms as well
 // It requires additional perf validation. Ticket: 163388
-#if !defined(OPENVINO_ARCH_ARM64)
-    return;
-#endif
+#if defined(OPENVINO_ARCH_ARM64)
     const auto& graphNodes = graph.GetNodes();
 
     auto parent = graphNodes.begin();
@@ -767,6 +765,7 @@ void GraphOptimizer::MergeEltwiseAndConvert(Graph& graph) {
         parentNode->addOriginalLayer(childNode->getOriginalLayers());
         graph.DropNode(childNode);
     }
+#endif
 }
 
 void GraphOptimizer::MergeConvertAndEltwise(Graph& graph) {

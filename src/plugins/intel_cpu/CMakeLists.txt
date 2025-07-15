@@ -259,6 +259,10 @@ endif()
 
 ov_mark_target_as_cc(${TARGET_NAME})
 
+if(OV_COMPILER_IS_CLANG)
+    target_compile_options(${TARGET_NAME} PRIVATE "-Wunreachable-code")
+endif()
+
 target_link_libraries(${TARGET_NAME} PRIVATE dnnl
                                              openvino::shape_inference
                                              openvino::snippets)
@@ -430,6 +434,10 @@ if(BUILD_SHARED_LIBS)
     set_target_properties(${TARGET_NAME}_obj PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ${ENABLE_LTO})
 
     ov_build_target_faster(${TARGET_NAME}_obj PCH PCH_EXCLUDE ${PCH_EXCLUDE_FILES})
+    
+    if(OV_COMPILER_IS_CLANG)
+        target_compile_options(${TARGET_NAME}_obj PRIVATE "-Werror=unreachable-code")
+    endif()
 endif()
 
 if(ENABLE_TESTS)
