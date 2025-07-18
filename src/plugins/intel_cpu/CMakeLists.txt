@@ -26,11 +26,10 @@ if(NOT BUILD_SHARED_LIBS)
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/include/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/onednn/src/*.hpp")
+        CONFIGURE_DEPENDS)
 
     # parse API symbols
     foreach(onednn_file IN LISTS onednn_files)
@@ -177,9 +176,14 @@ if (ENABLE_SHL_FOR_CPU)
     set(OV_CPU_WITH_SHL ON)
 endif()
 
-file(GLOB_RECURSE SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-file(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
-                          ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp)
+
+set_property(DIRECTORY APPEND PROPERTY
+             CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 if(NOT OV_CPU_WITH_ACL)
     list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/acl/*

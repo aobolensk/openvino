@@ -79,12 +79,18 @@ else()
         ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests)
     # except ones which already enabled
-    file(GLOB_RECURSE TMP_LIST_OF_TEST_CLASSES          ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/classes/*.cpp)
-    file(GLOB_RECURSE TMP_LIST_OF_COMMON_TEST_INSTANCES ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/instances/common/*.cpp)
-    file(GLOB_RECURSE TMP_LIST_OF_ARM_TEST_INSTANCES    ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/instances/arm/*.cpp)
-    file(GLOB_RECURSE TMP_LIST_OF_ARM_SUBGRAPH_TESTS    ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/arm/*.cpp)
-    file(GLOB_RECURSE TMP_LIST_OF_COMMON_SUBGRAPH_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/common/*.cpp)
-    file(GLOB_RECURSE TMP_LIST_OF_SUBGRAPH_TEST_CLASSES ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/classes/*.*)
+    file(GLOB_RECURSE TMP_LIST_OF_TEST_CLASSES CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/classes/*.cpp)
+    file(GLOB_RECURSE TMP_LIST_OF_COMMON_TEST_INSTANCES CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/instances/common/*.cpp)
+    file(GLOB_RECURSE TMP_LIST_OF_ARM_TEST_INSTANCES CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/single_layer_tests/instances/arm/*.cpp)
+    file(GLOB_RECURSE TMP_LIST_OF_ARM_SUBGRAPH_TESTS CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/arm/*.cpp)
+    file(GLOB_RECURSE TMP_LIST_OF_COMMON_SUBGRAPH_TESTS CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/common/*.cpp)
+    file(GLOB_RECURSE TMP_LIST_OF_SUBGRAPH_TEST_CLASSES CONFIGURE_DEPENDS
+         ${CMAKE_CURRENT_SOURCE_DIR}/custom/subgraph_tests/src/classes/*.*)
 
     list(APPEND TMP_LIST_OF_EXPLICITLY_ENABLED_TESTS
         ${TMP_LIST_OF_TEST_CLASSES} ${TMP_LIST_OF_COMMON_TEST_INSTANCES} ${TMP_LIST_OF_ARM_TEST_INSTANCES} ${TMP_LIST_OF_ARM_SUBGRAPH_TESTS} ${TMP_LIST_OF_COMMON_SUBGRAPH_TESTS} ${TMP_LIST_OF_SUBGRAPH_TEST_CLASSES})
