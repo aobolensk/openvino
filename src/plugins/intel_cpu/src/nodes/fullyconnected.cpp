@@ -696,7 +696,7 @@ void FullyConnected::createPrimitive() {
     for (const auto& entry : m_atoi) {
         const auto argumentId = entry.first;
         const auto inputId = entry.second;
-        memory[argumentId] = getSrcMemoryAtPort(inputId);
+        memory[static_cast<int>(argumentId)] = getSrcMemoryAtPort(inputId);
     }
 
     memory[ARG_DST] = getDstMemoryAtPort(0);

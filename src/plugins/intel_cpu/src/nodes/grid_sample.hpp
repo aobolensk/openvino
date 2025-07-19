@@ -35,8 +35,8 @@ public:
         uint64_t channelsNum = 1lu;
         std::vector<float> srcHeightF{1.f};
         std::vector<float> srcWidthF{1.f};
-        std::vector<int> srcWidthB{1lu};
-        std::vector<int> dataTypeSize{1lu};
+        std::vector<int> srcWidthB{1};
+        std::vector<int> dataTypeSize{1};
         std::vector<float> srcHeightMul2F{1.f};
         std::vector<float> srcWidthMul2F{1.f};
         std::vector<float> srcHeightMul2Sub1F{1.f};
@@ -70,7 +70,7 @@ private:
     ov::element::Type dataPrecision;
     ov::element::Type gridPrecision = ov::element::f32;
 
-    size_t m_threads_num = 0lu;
+    size_t m_threads_num = 0;
     std::vector<threadExecParams> execParamsPerThread;
 
     static constexpr size_t IN_DATA = 0;

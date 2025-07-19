@@ -117,8 +117,8 @@ void GridSample::initSupportedPrimitiveDescriptors() {
     if (dataPrecision != ov::element::i32) {
         dataPrecision = ov::element::f32;
     }
-    dataTypeSize = static_cast<size_t>(dataPrecision.size());
-    gridTypeSize = static_cast<size_t>(gridPrecision.size());
+    dataTypeSize = dataPrecision.size();
+    gridTypeSize = gridPrecision.size();
 
     impl_desc_type implType = jit_sse42;
     if (x64::mayiuse(x64::avx512_core)) {
@@ -191,7 +191,7 @@ void GridSample::createPrimitive() {
             }
             if (interpolationMode == GridSampleInterpolationMode::BICUBIC) {
                 const size_t vecNum = paddingMode == GridSamplePaddingMode::ZEROS ? 32 : 16;
-                p.buffer.resize(dataElPerVec * dataTypeSize * vecNum);
+                p.buffer.resize(static_cast<size_t>(dataElPerVec) * dataTypeSize * vecNum);
             }
         });
     }
@@ -236,16 +236,15 @@ void GridSample::prepareParams() {
         p.srcBatchStepB =
             std::accumulate(srcDataShape.begin() + 1, srcDataShape.end(), dataTypeSize, std::multiplies<>());
         p.gridBatchStepB = (static_cast<uint64_t>(dstShape[2]) * static_cast<uint64_t>(dstShape[3]) - p.workAmount) *
-                           static_cast<uint64_t>(2) * static_cast<uint64_t>(gridTypeSize);
+                           static_cast<uint64_t>(2) * gridTypeSize;
         p.dstBatchStepB = (static_cast<uint64_t>(dstShape[1]) * static_cast<uint64_t>(dstShape[2]) *
                                static_cast<uint64_t>(dstShape[3]) -
                            p.workAmount) *
-                          static_cast<uint64_t>(dataTypeSize);
+                          dataTypeSize;
 
-        p.srcChannelStepB = static_cast<uint64_t>(srcDataShape[2]) * static_cast<uint64_t>(srcDataShape[3]) *
-                            static_cast<uint64_t>(dataTypeSize);
-        p.dstChannelStepB = static_cast<uint64_t>(dstShape[2]) * static_cast<uint64_t>(dstShape[3]) *
-                            static_cast<uint64_t>(dataTypeSize);
+        p.srcChannelStepB =
+            static_cast<uint64_t>(srcDataShape[2]) * static_cast<uint64_t>(srcDataShape[3]) * dataTypeSize;
+        p.dstChannelStepB = static_cast<uint64_t>(dstShape[2]) * static_cast<uint64_t>(dstShape[3]) * dataTypeSize;
         p.dataTypeSize[0] = static_cast<int>(dataTypeSize);
 
         p.srcHeightSub1F[0] = p.srcHeightF[0] - 1.F;

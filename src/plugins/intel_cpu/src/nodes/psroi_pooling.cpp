@@ -455,7 +455,8 @@ void PSROIPooling::executeBilinear(const inputType* srcData,
                                       ? (static_cast<float>(w) * widthScale + boxXmin * static_cast<float>(width - 1))
                                       : 0.5F * (boxXmin + boxXmax) * static_cast<float>(width - 1);
 
-                if (inY >= 0 && inY <= height - 1 && inX >= 0 && inX <= width - 1) {
+                if (inY >= 0 && inY <= static_cast<float>(height - 1) && inX >= 0 &&
+                    inX <= static_cast<float>(width - 1)) {
                     const auto topYIndex = static_cast<int>(floorf(inY));
                     auto bottomYIndex = static_cast<int>(ceilf(inY));
                     const auto leftXIndex = static_cast<int>(floorf(inX));
@@ -585,8 +586,10 @@ void PSROIPooling::executeBilinearDeformable(const inputType* srcData,
                 if (w1 < -0.5 || w1 > width - 0.5 || h1 < -0.5 || h1 > height - 0.5) {
                     continue;
                 }
-                w1 = static_cast<float>((std::min)((std::max)(static_cast<double>(w1), 0.0), width - 1.0));
-                h1 = static_cast<float>((std::min)((std::max)(static_cast<double>(h1), 0.0), height - 1.0));
+                w1 = static_cast<float>(
+                    (std::min)((std::max)(static_cast<double>(w1), 0.0), static_cast<double>(width - 1)));
+                h1 = static_cast<float>(
+                    (std::min)((std::max)(static_cast<double>(h1), 0.0), static_cast<double>(height - 1)));
                 auto c1 = static_cast<int>((c * groupSize + gh) * groupSize + gw);
                 float val = bilinearInterp<inputType>(offsetBottomData + c1 * height * width, w1, h1, width);
 
@@ -594,7 +597,7 @@ void PSROIPooling::executeBilinearDeformable(const inputType* srcData,
                 count++;
             }
         }
-        dstData[dstIndex] = count == 0 ? 0 : sum / count;
+        dstData[dstIndex] = count == 0 ? 0 : sum / static_cast<float>(count);
     });
 }
 

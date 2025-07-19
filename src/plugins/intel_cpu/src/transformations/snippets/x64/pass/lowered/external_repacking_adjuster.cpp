@@ -5,6 +5,7 @@
 #include "external_repacking_adjuster.hpp"
 
 #include <oneapi/dnnl/dnnl.h>
+#include <oneapi/dnnl/dnnl_common_types.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -107,7 +108,7 @@ void BrgemmExternalRepackingAdjuster::update_kernel(const RepackExecutorPtr& exe
         ov::snippets::utils::get_dim_in_stride(shape, layout, idx) * dnnl_data_type_size(config->get_original_wei_dt());
     const auto LDB =
         brgemm_utils::repacking::compute_K_blocked_stride(N, config->get_wei_N_blk(), config->are_wei_blocked());
-    config->update(N, N, K, K, copy_wei_stride, LDB);
+    config->update(N, N, K, K, copy_wei_stride, static_cast<dnnl_dim_t>(LDB));
     executor->update_by_config(*config);
 }
 

@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <oneapi/dnnl/dnnl.hpp>
 #include <oneapi/dnnl/dnnl_common.hpp>
 #include <string>
 #include <utility>
@@ -341,7 +342,8 @@ void DynamicBuffer::move_buffer(const MemoryPtr& new_buffer) {
 
     const auto valid_size = chunk_unit_in_byte * num_execs;
     const auto src_offset_in_byte = stride > 0 ? 0 : (src_stride - valid_size);
-    chunk_offset_in_byte = stride > 0 ? 0 : static_cast<ptrdiff_t>(dst_stride - valid_size);  // reset chunk_offset_in_byte
+    chunk_offset_in_byte =
+        stride > 0 ? 0 : static_cast<ptrdiff_t>(dst_stride - valid_size);  // reset chunk_offset_in_byte
 
     copy(mem_holder_buffer->getDataAs<uint8_t>() + src_offset_in_byte,
          new_buffer->getDataAs<uint8_t>() + chunk_offset_in_byte,
@@ -391,7 +393,7 @@ void DynamicBuffer::transfer(const Node* node) {
         const auto& src_mem = from->getPrimitive();
         const auto& src_desc = src_mem.get_desc();
         auto dims = src_desc.get_dims();
-        dims[axis] = static_cast<dnnl::memory::dim>(abs_stride * num_execs);
+        dims[axis] = static_cast<dnnl::memory::dim>(abs_stride) * static_cast<dnnl::memory::dim>(num_execs);
         const auto desc = node->getBaseMemDescAtOutputPort(map_rule.from)
                               ->cloneWithNewDims(DnnlExtensionUtils::convertToVectorDims(dims));
 

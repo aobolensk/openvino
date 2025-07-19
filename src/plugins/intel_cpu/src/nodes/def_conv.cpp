@@ -806,7 +806,7 @@ DeformableConvolution::DeformableConvolution(const std::shared_ptr<ov::Node>& op
     CPU_NODE_ASSERT(defConvNodeBase, "is not an instance of DeformableConvolutionBase.");
 
     defConvAttr.group = defConvNodeBase->get_group();
-    defConvAttr.deformable_group = defConvNodeBase->get_deformable_group();
+    defConvAttr.deformable_group = static_cast<int>(defConvNodeBase->get_deformable_group());
     const auto& strides = defConvNodeBase->get_strides();
     for (uint64_t stride : strides) {
         defConvAttr.stride.push_back(static_cast<int>(stride));
@@ -977,8 +977,8 @@ void DeformableConvolution::DefConvExecutor::prepareSamplingWeights(const float*
                                                    oh * offStrides[2] + ow * offStrides[3];
                 const float offset_h = data_offset_ptr[data_offset_h_index];
                 const float offset_w = data_offset_ptr[data_offset_w_index];
-                float map_h = h_in + kh * (KDH + 1) + offset_h;
-                float map_w = w_in + kw * (KDW + 1) + offset_w;
+                float map_h = static_cast<float>(h_in) + static_cast<float>(kh * (KDH + 1)) + offset_h;
+                float map_w = static_cast<float>(w_in) + static_cast<float>(kw * (KDW + 1)) + offset_w;
                 bool skip_compute = false;
                 if (with_bi_pad) {
                     skip_compute = static_cast<int>(map_w) <= -1 || static_cast<int>(map_w) >= IW ||

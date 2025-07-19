@@ -209,8 +209,8 @@ private:
     }
 
     const struct vals_for_logistic_activate_type {
-        int mask_sign = 0x80000000;  // 0 //  mask to extract sign
-        int float_1 = 0x3f800000;    // 1 //  1.0f
+        int mask_sign = static_cast<int>(0x80000000U);  // 0 //  mask to extract sign
+        int float_1 = 0x3f800000;                       // 1 //  1.0f
     } vals_for_logistic_activate;
 
     void load_vector(Vmm vmm_src, const Xbyak::Address& op, ov::element::Type src_dt) {
@@ -391,7 +391,7 @@ inline float RegionYolo::logistic_scalar(float src) {
 }
 
 inline void RegionYolo::calculate_logistic(size_t start_index, int count, uint8_t* dst_data) {
-    auto dst_data_size = output_prec.size();
+    const auto dst_data_size = output_prec.size();
     if (logistic_kernel) {
         int blocks_num = div_up(count, block_size);
         parallel_for(blocks_num, [&](int ib) {

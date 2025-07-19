@@ -597,8 +597,8 @@ std::ostream& operator<<(std::ostream& os, const PrintableModel& model) {
 // so far we can only show correct delta on single stream configuration, which
 // is enough for debug purpose
 std::ostream& operator<<(std::ostream& os, const PrintableDelta& d) {
-    double us_last = d.us_last;
-    double us_all = d.us_all;
+    auto us_last = static_cast<double>(d.us_last);
+    auto us_all = static_cast<double>(d.us_all);
     os << "[+ " << std::setw(8) << std::setfill(' ') << std::fixed << std::setprecision(3) << us_last / 1000 << "/"
        << us_all / 1000 << " ms]";
     return os;

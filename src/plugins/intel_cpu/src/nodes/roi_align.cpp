@@ -1192,7 +1192,7 @@ void ROIAlign::executeSpecified() {
             size_t channelSrcOffset = batchSrcOffset + cIdx * H * W;
             size_t binOffset = yBinInd * pooledW + xBinInd;
             size_t binDstOffset = n * batchOutputStride + cIdx * binCount + binOffset;
-            int paramOffset = static_cast<int>(binOffset * BLIParamsNum * numSamplesROI);
+            auto paramOffset = static_cast<int>(binOffset * BLIParamsNum * numSamplesROI);
             float numSamplesInBinInvert = 1.F / static_cast<float>(numSamplesROI);
 
             float pooledValue = 0;

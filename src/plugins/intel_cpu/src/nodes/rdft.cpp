@@ -910,7 +910,8 @@ struct RDFTJitExecutor : public RDFTExecutor {
                 k += start;
                 double angle = 2 * PI * k * n / inputSize;
                 twiddles[2 * (k * inputSize + n)] = static_cast<float>(std::cos(angle));
-                twiddles[2 * (k * inputSize + n) + 1] = isInverse ? static_cast<float>(std::sin(angle)) : static_cast<float>(-std::sin(angle));
+                twiddles[2 * (k * inputSize + n) + 1] =
+                    isInverse ? static_cast<float>(std::sin(angle)) : static_cast<float>(-std::sin(angle));
             });
         }
         return twiddles;
@@ -967,8 +968,8 @@ private:
             if (!isInverse) {
                 angle = -angle;
             }
-            twiddles[(k * inputSize + n) * 2] = std::cos(angle);
-            twiddles[(k * inputSize + n) * 2 + 1] = std::sin(angle);
+            twiddles[(k * inputSize + n) * 2] = cosf(static_cast<float>(angle));
+            twiddles[(k * inputSize + n) * 2 + 1] = sinf(static_cast<float>(angle));
         });
         return twiddles;
     }
