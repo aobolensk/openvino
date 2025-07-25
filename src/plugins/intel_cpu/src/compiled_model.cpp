@@ -5,6 +5,7 @@
 #include "compiled_model.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -73,14 +74,16 @@ CompiledModel::CompiledModel(const std::shared_ptr<ov::Model>& model,
                              const std::shared_ptr<const ov::IPlugin>& plugin,
                              Config cfg,
                              const bool loaded_from_cache,
-                             std::shared_ptr<SubMemoryManager> sub_memory_manager)
+                             std::shared_ptr<SubMemoryManager> sub_memory_manager,
+                             uint64_t region_id)
     : ov::ICompiledModel::ICompiledModel(model, plugin),
       m_model(model),
       m_plugin(plugin),
       m_cfg{std::move(cfg)},
       m_name{model->get_name()},
       m_loaded_from_cache(loaded_from_cache),
-      m_sub_memory_manager(std::move(sub_memory_manager)) {
+      m_sub_memory_manager(std::move(sub_memory_manager)),
+      m_region_id(region_id) {
     m_mutex = std::make_shared<std::mutex>();
     const auto& core = m_plugin->get_core();
     OPENVINO_ASSERT(core, "Unable to get API version. Core is unavailable");

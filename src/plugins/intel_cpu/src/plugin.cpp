@@ -29,6 +29,7 @@
 #include "openvino/core/type/element_type.hpp"
 #include "openvino/core/version.hpp"
 #include "openvino/itt.hpp"
+#include <atomic>
 #include "openvino/op/convolution.hpp"
 #include "openvino/op/paged_attention.hpp"
 #include "openvino/op/scaled_dot_product_attention.hpp"
@@ -175,7 +176,15 @@ static Config::ModelType getModelType(const std::shared_ptr<const Model>& model)
 
 std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<const ov::Model>& model,
                                                           const ov::AnyMap& orig_config) const {
-    OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Plugin::compile_model");
+    // ITT Event Chaining: Generate unique region_id for each compiled model to enable 
+    // continuous task tracking from compilation through inference execution in VTune.
+    // This region_id is passed to CompiledModel and used by InferRequest to maintain
+    // a single contiguous chain per model across different execution phases.
+    static std::atomic<uint64_t> region_counter{0};
+    const uint64_t region_id = region_counter.fetch_add(1);
+    
+    // ITT: Start task chain for model compilation with unique region_id
+    OV_ITT_TASK_CHAIN(compile_chain, itt::domains::intel_cpu, "region_" + std::to_string(region_id), "compile_model");
     CREATE_DEBUG_TIMER(debugLoadTimer);
 
     // verification of supported input
@@ -209,6 +218,9 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
     conf.applyRtInfo(cloned_model);
     conf.readProperties(config, modelType);
 
+    // ITT: Progress to transformations phase
+    OV_ITT_TASK_NEXT(compile_chain, "transformations");
+    
     Transformations transformations(cloned_model, conf);
 
     transformations.UpToLpt();
@@ -224,6 +236,9 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
     transformations.Snippets();
 
     transformations.CpuSpecificOpSet();
+
+    // ITT: Progress to final compilation phase
+    OV_ITT_TASK_NEXT(compile_chain, "finalize");
 
     DEBUG_LOG(PrintableModel(*cloned_model, "cpu_"));
 
@@ -256,7 +271,7 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
             denormals_as_zero(false);
         }
     }
-    return std::make_shared<CompiledModel>(cloned_model, shared_from_this(), conf, false);
+    return std::make_shared<CompiledModel>(cloned_model, shared_from_this(), conf, false, nullptr, region_id);
 }
 
 void Plugin::set_property(const ov::AnyMap& config) {
@@ -625,7 +640,11 @@ std::shared_ptr<ov::ICompiledModel> Plugin::deserialize_model(ModelDeserializer&
 
     // import config props from caching model
     calculate_streams(conf, model, true);
-    auto compiled_model = std::make_shared<CompiledModel>(model, shared_from_this(), conf, loaded_from_cache);
+    // For cached models, use a simple counter for region_id since original region_id is not available
+    static std::atomic<uint64_t> cached_region_counter{1000000};  // Start at higher number to distinguish from compile-time IDs
+    const uint64_t cached_region_id = cached_region_counter.fetch_add(1);
+    
+    auto compiled_model = std::make_shared<CompiledModel>(model, shared_from_this(), conf, loaded_from_cache, nullptr, cached_region_id);
     return compiled_model;
 }
 }  // namespace ov::intel_cpu

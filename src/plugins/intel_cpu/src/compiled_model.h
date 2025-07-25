@@ -44,7 +44,8 @@ public:
                   const std::shared_ptr<const ov::IPlugin>& plugin,
                   Config cfg,
                   bool loaded_from_cache,
-                  std::shared_ptr<SubMemoryManager> sub_memory_manager = nullptr);
+                  std::shared_ptr<SubMemoryManager> sub_memory_manager = nullptr,
+                  uint64_t region_id = 0);
 
     ~CompiledModel() override;
 
@@ -65,6 +66,10 @@ public:
 
     std::string name() const {
         return m_name;
+    }
+    
+    uint64_t region_id() const {
+        return m_region_id;
     }
 
 private:
@@ -102,6 +107,8 @@ private:
     std::shared_ptr<SubMemoryManager> m_sub_memory_manager = nullptr;
     bool m_has_sub_compiled_models = false;
     bool m_optimized_single_stream = false;
+    
+    uint64_t m_region_id = 0;  // ITT region ID for event chaining across compilation and inference
 };
 
 // This class provides safe access to the internal CompiledModel structures and helps to decouple SyncInferRequest and
@@ -150,6 +157,10 @@ public:
 
     [[nodiscard]] int id() const {
         return m_id;
+    }
+    
+    [[nodiscard]] uint64_t region_id() const {
+        return m_compiled_model->region_id();
     }
 
 private:

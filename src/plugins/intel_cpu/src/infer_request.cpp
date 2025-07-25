@@ -5,6 +5,7 @@
 #include "infer_request.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <map>
@@ -104,7 +105,10 @@ void SyncInferRequest::update_external_tensor_ptrs() {
 
 void SyncInferRequest::infer() {
     using namespace openvino::itt;
-    OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, m_profiling_task);
+    // ITT Event Chaining: Use the same region_id from compilation to create a continuous
+    // task chain that shows model compilation -> inference execution in VTune
+    const uint64_t region_id = m_compiled_model.region_id();
+    OV_ITT_TASK_CHAIN(infer_chain, itt::domains::intel_cpu, "region_" + std::to_string(region_id), "infer");
     auto graphLock = m_compiled_model.lock();
     auto&& graph = graphLock._graph;
     auto message = ov::threading::message_manager();
@@ -137,6 +141,8 @@ void SyncInferRequest::infer() {
 
     push_input_data(graph);
 
+    // ITT: Progress to graph execution phase
+    OV_ITT_TASK_NEXT(infer_chain, "graph_infer");
     graph.Infer(this);
 
     throw_if_canceled();

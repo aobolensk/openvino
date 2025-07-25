@@ -4,6 +4,9 @@
 
 set(TARGET_NAME openvino_itt)
 
+set(CMAKE_CXX_VISIBILITY_PRESET default)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN OFF)
+
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.hpp" "include/*.hpp")
 
 add_library(${TARGET_NAME} STATIC ${SOURCES})
@@ -12,6 +15,7 @@ add_library(openvino::itt ALIAS ${TARGET_NAME})
 set_target_properties(${TARGET_NAME} PROPERTIES EXPORT_NAME itt)
 
 target_link_libraries(${TARGET_NAME} PUBLIC openvino::util)
+
 
 if(ENABLE_PROFILING_ITT)
     if(TARGET ittapi::ittnotify)
@@ -35,7 +39,6 @@ endif()
 
 target_include_directories(${TARGET_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-
 ov_add_clang_format_target(${TARGET_NAME}_clang FOR_TARGETS ${TARGET_NAME})
 
 # install & export

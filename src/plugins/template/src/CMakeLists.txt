@@ -33,6 +33,11 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     openvino::interpreter_backend
     openvino::reference)
 
+# Fix ITT linking issue by explicitly linking ittnotify when ITT profiling is enabled
+if(ENABLE_PROFILING_ITT)
+    target_link_libraries(${TARGET_NAME} PRIVATE ittnotify)
+endif()
+
 set_target_properties(${TARGET_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ${ENABLE_LTO})
 
 if (ENABLE_TEMPLATE_REGISTRATION)
