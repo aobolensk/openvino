@@ -176,6 +176,89 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulsQuantizedSoftmax, MatMulsQuantize
                                  ::testing::Values(CPUTestUtils::empty_plugin_config)),
                          MatMul::getTestCaseName);
 
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax{
+    { {{}, {{1, 1, 32, 64}}},   {{}, {{1, 1, 64, 32}}} },
+    { {{}, {{1, 2, 64, 128}}},  {{}, {{1, 2, 128, 64}}} },
+    { {{}, {{2, 3, 128, 256}}}, {{}, {{2, 3, 256, 128}}} },
+    { {{}, {{1, 4, 256, 512}}}, {{}, {{1, 4, 512, 256}}} },
+    // Dynamic shapes
+    {
+        {PartialShape{-1, -1, -1, -1}, {{1, 2, 32, 64}, {1, 2, 64, 128}, {2, 3, 128, 256}}},
+        {PartialShape{-1, -1, -1, -1}, {{1, 2, 64, 32}, {1, 2, 128, 64}, {2, 3, 256, 128}}}
+    }
+};
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmax, MatMulSoftmax,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // MatMul + Softmax
+                                 ::testing::Values(1), // Tokenized MatMul+Softmax
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_2{
+    // 2-stage chain: data0, W0, B0, W1, B1
+    { {{}, {{1, 1, 32, 64}}},  {{}, {{1, 1, 64, 32}}},  {{}, {{1, 1, 1, 32}}},
+      {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}} },
+
+    // batch example
+    { {{}, {{2, 2, 64, 128}}}, {{}, {{2, 2, 128, 64}}}, {{}, {{2, 2, 1, 64}}},
+      {{}, {{2, 2, 64, 64}}},  {{}, {{2, 2, 1, 64}}} },
+};
+
+// N = 3 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_3{
+    // 3-stage chain: data0, W0, B0, W1, B1, W2, B2
+    { {{}, {{1, 1, 32, 64}}},  {{}, {{1, 1, 64, 32}}},  {{}, {{1, 1, 1, 32}}},
+      {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}},
+      {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}} }
+};
+
+// N = 4 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_4{
+    // 4-stage chain: data0, W0, B0, W1, B1, W2, B2, W3, B3
+    { {{}, {{1, 1, 16, 32}}},  {{}, {{1, 1, 32, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}} }
+};
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N2, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_2),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 2 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N3, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_3),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 3 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N4, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_4),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 4 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
 } // namespace
 } // namespace snippets
 } // namespace test

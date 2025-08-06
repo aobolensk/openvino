@@ -312,6 +312,103 @@ std::shared_ptr<ov::Model> MatMulsQuantizedSoftmaxFunction::initOriginal() const
     return std::make_shared<ov::Model>(OutputVector{fq3}, params);
 }
 
+std::shared_ptr<ov::Model> MatMulSoftmaxFunction::initOriginal() const {
+    auto data0 = std::make_shared<op::v0::Parameter>(precision, input_shapes[0]);
+    ParameterVector params{data0};
+    auto data1 = make_matmul_b_input(precision, input_shapes[1], matmul_type, params);
+
+    auto matmul = std::make_shared<op::v0::MatMul>(data0, data1);
+    auto softmax = std::make_shared<ov::op::v8::Softmax>(matmul, -1);
+
+    return std::make_shared<ov::Model>(OutputVector{softmax}, params);
+}
+
+std::shared_ptr<ov::Model> MatMulSoftmaxFunction::initReference() const {
+    auto data0 = std::make_shared<op::v0::Parameter>(precision, input_shapes[0]);
+    ParameterVector params{data0};
+    auto data1 = make_matmul_b_input(precision, input_shapes[1], matmul_type, params);
+
+    auto indata0 = std::make_shared<op::v0::Parameter>(precision, data0->get_output_partial_shape(0));
+    auto indata1 = std::make_shared<op::v0::Parameter>(precision, data1->get_output_partial_shape(0));
+
+    auto matmul = std::make_shared<op::v0::MatMul>(indata0, indata1);
+    auto softmax = std::make_shared<ov::op::v8::Softmax>(matmul, -1);
+
+    const auto subgraph = std::make_shared<ov::snippets::op::Subgraph>(
+        NodeVector{data0, data1},
+        std::make_shared<ov::Model>(OutputVector{softmax}, ParameterVector{indata0, indata1}));
+    return std::make_shared<ov::Model>(OutputVector{subgraph}, params);
+}
+
+std::shared_ptr<ov::Model> MatMulBiasScalabilityFunction::initOriginal() const {
+    ParameterVector params;
+
+    const size_t M = input_shapes.size();
+    OPENVINO_ASSERT(M >= 3 && ((M - 1) % 2 == 0), "Unexpected input_shapes size for chained MatMul+Bias");
+    const size_t N = (M - 1) / 2; // number of (MatMul+Bias) stages in the chain
+
+    // data0 at index 0
+    auto data0 = std::make_shared<op::v0::Parameter>(precision, input_shapes[0]);
+    params.push_back(data0);
+
+    std::shared_ptr<ov::Node> current = data0;
+
+    for (size_t i = 0; i < N; ++i) {
+        const size_t w_idx = 2 * i + 1; // W_i
+        const size_t b_idx = 2 * i + 2; // B_i
+
+        auto weight = make_matmul_b_input(precision, input_shapes[w_idx], matmul_type, params);
+        auto bias   = make_matmul_b_input(precision, input_shapes[b_idx], matmul_type, params);
+
+        auto mm  = std::make_shared<op::v0::MatMul>(current, weight);
+        current  = std::make_shared<op::v1::Add>(mm, bias);
+    }
+
+    return std::make_shared<ov::Model>(OutputVector{current}, params);
+}
+
+std::shared_ptr<ov::Model> MatMulBiasScalabilityFunction::initReference() const {
+    ParameterVector params;
+    ParameterVector inner_params;
+
+    const size_t M = input_shapes.size();
+    OPENVINO_ASSERT(M >= 3 && ((M - 1) % 2 == 0), "Unexpected input_shapes size for chained MatMul+Bias");
+    const size_t N = (M - 1) / 2; // number of (MatMul+Bias) stages in the chain
+
+    // data0 at index 0
+    auto data0 = std::make_shared<op::v0::Parameter>(precision, input_shapes[0]);
+    params.push_back(data0);
+    auto indata0 = std::make_shared<op::v0::Parameter>(precision, data0->get_output_partial_shape(0));
+    inner_params.push_back(indata0);
+
+    std::shared_ptr<ov::Node> current = indata0;
+    NodeVector inputs{data0};
+
+    for (size_t i = 0; i < N; ++i) {
+        const size_t w_idx = 2 * i + 1; // W_i
+        const size_t b_idx = 2 * i + 2; // B_i
+
+        auto weight = make_matmul_b_input(precision, input_shapes[w_idx], matmul_type, params);
+        auto bias   = make_matmul_b_input(precision, input_shapes[b_idx], matmul_type, params);
+
+        auto inner_weight = std::make_shared<op::v0::Parameter>(precision, weight->get_output_partial_shape(0));
+        auto inner_bias   = std::make_shared<op::v0::Parameter>(precision, bias->get_output_partial_shape(0));
+        inner_params.push_back(inner_weight);
+        inner_params.push_back(inner_bias);
+
+        inputs.push_back(weight);
+        inputs.push_back(bias);
+
+        auto mm = std::make_shared<op::v0::MatMul>(current, inner_weight);
+        current = std::make_shared<op::v1::Add>(mm, inner_bias);
+    }
+
+    const auto subgraph = std::make_shared<ov::snippets::op::Subgraph>(
+        inputs,
+        std::make_shared<ov::Model>(OutputVector{current}, inner_params));
+    return std::make_shared<ov::Model>(OutputVector{subgraph}, params);
+}
+
 std::shared_ptr<ov::Model> MatMulEltwiseChainFunction::initOriginal() const {
     auto data0 = std::make_shared<op::v0::Parameter>(precision, input_shapes[0]);
     ParameterVector params{data0};

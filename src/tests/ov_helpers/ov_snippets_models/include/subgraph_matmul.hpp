@@ -197,6 +197,87 @@ protected:
     std::shared_ptr<ov::Model> initOriginal() const override;
 };
 
+//         Param
+//           |
+//         MatMul
+//           |
+//        Softmax
+class MatMulSoftmaxFunction : public MatMulFunctionBase {
+public:
+    explicit MatMulSoftmaxFunction(const std::vector<PartialShape>& inputShapes,
+                                   const std::vector<ov::element::Type>& precisions,
+                                   MatMulType type)
+        : MatMulFunctionBase(inputShapes, type, precisions) {
+        OPENVINO_ASSERT(input_shapes.size() == 2, "Got invalid number of input shapes");
+    }
+
+    std::set<size_t> get_constant_input_idces() const override {
+        return matmul_type == MatMulType::FullyConnected ? std::set<size_t>{1} : std::set<size_t>{};
+    }
+
+protected:
+    std::shared_ptr<ov::Model> initOriginal() const override;
+    std::shared_ptr<ov::Model> initReference() const override;
+};
+
+//  MatMulBiasScalabilityFunction
+//  Inputs: data0, W0, B0, W1, B1, ..., W{N-1}, B{N-1}
+//  Constraint: M = 1 + 2*N  (data0 + (weight, bias) * N)
+//  Tokenization per stage: MatMul -> Add(bias)
+//  For FullyConnected: constant inputs are {2*i + 1 : W_i, 2*i + 2 : B_i}
+//
+//       data0
+//         |
+//       MatMul            <--- W0
+//         |
+//         Add             <--- B0
+//         |
+//       MatMul            <--- W1
+//         |
+//         Add             <--- B1
+//         |
+//         ...
+//         |
+//       MatMul            <--- W{N-1}
+//         |
+//         Add             <--- B{N-1}
+//         |
+//       Result
+class MatMulBiasScalabilityFunction : public MatMulFunctionBase {
+public:
+    explicit MatMulBiasScalabilityFunction(const std::vector<PartialShape>& inputShapes,
+                                           const std::vector<ov::element::Type>& precisions,
+                                           MatMulType type,
+                                           size_t num_repetitions = 2)
+        : MatMulFunctionBase(inputShapes, type, precisions) {
+        const size_t M = input_shapes.size();
+        OPENVINO_ASSERT(M >= 3 && ((M - 1) % 2 == 0),
+            std::string("Got invalid number of input shapes: expected 1 + 2*N (data0 + (weight, bias) * N), got ")
+            + std::to_string(M));
+        // Derive the true stage count from shapes to avoid desync with test params:
+        m_num_repetitions = (M - 1) / 2;
+    }
+
+    std::set<size_t> get_constant_input_idces() const override {
+        std::set<size_t> constant_idces;
+        if (matmul_type == MatMulType::FullyConnected) {
+            // Chained layout: W_i at 2*i+1, B_i at 2*i+2
+            for (size_t i = 0; i < m_num_repetitions; ++i) {
+                constant_idces.insert(2 * i + 1);  // weight indices
+                constant_idces.insert(2 * i + 2);  // bias indices
+            }
+        }
+        return constant_idces;
+    }
+
+protected:
+    std::shared_ptr<ov::Model> initOriginal() const override;
+    std::shared_ptr<ov::Model> initReference() const override;
+
+private:
+    size_t m_num_repetitions{};
+};
+
 //         MatMul
 //           |   |
 //           |  Eltwise chain
