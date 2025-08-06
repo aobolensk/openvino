@@ -82,6 +82,11 @@ protected:
     std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override;
 };
 
+class MatMulSoftmaxScalability : public MatMul {
+protected:
+    std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override;
+};
+
 class MatMulEltwiseChain : public MatMul {
 protected:
     std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override;

@@ -98,6 +98,12 @@ std::shared_ptr<MatMulFunctionBase> MatMulBiasScalability::get_builder(const std
     return std::make_shared<MatMulBiasScalabilityFunction>(inputDynamicShapes, types, matmul_type, num_repetitions);
 }
 
+std::shared_ptr<MatMulFunctionBase> MatMulSoftmaxScalability::get_builder(const std::vector<ov::element::Type>& types) {
+    // Calculate repetitions from input shapes count: each repetition needs 2 inputs (data, weight)
+    size_t num_repetitions = inputDynamicShapes.size() - 1;
+    return std::make_shared<MatMulSoftmaxScalabilityFunction>(inputDynamicShapes, types, matmul_type, num_repetitions);
+}
+
 std::shared_ptr<MatMulFunctionBase> MatMulEltwiseChain::get_builder(const std::vector<ov::element::Type>& types) {
     return std::make_shared<MatMulEltwiseChainFunction>(inputDynamicShapes, types, matmul_type);
 }
@@ -157,6 +163,12 @@ TEST_P(MatMulSoftmax, CompareWithRefImpl) {
 }
 
 TEST_P(MatMulBiasScalability, CompareWithRefImpl) {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
+    run();
+    validateNumSubgraphs();
+}
+
+TEST_P(MatMulSoftmaxScalability, CompareWithRefImpl) {
     SKIP_IF_CURRENT_TEST_IS_DISABLED()
     run();
     validateNumSubgraphs();

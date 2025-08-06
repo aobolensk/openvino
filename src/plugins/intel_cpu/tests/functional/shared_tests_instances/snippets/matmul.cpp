@@ -10,6 +10,92 @@ namespace ov {
 namespace test {
 namespace snippets {
 
+// CPU-specific accuracy test classes
+// NOTE: Reference implementations are ready, but OpenVINO parameter naming creates unique names
+//       each time, causing parameter mismatch between original and reference models.
+//       Infrastructure is in place for when this framework limitation is resolved.
+
+// CPU-specific accuracy test class for MatMulSoftmax
+class MatMulSoftmaxAccuracy : public MatMul {
+public:
+    void SetUp() override {
+        std::vector<ov::test::InputShape> input_shapes;
+        std::vector<ov::element::Type> elem_types;
+        ov::AnyMap additional_config;
+        std::tie(input_shapes, elem_types, matmul_type, ref_num_nodes, ref_num_subgraphs, targetDevice, additional_config) = this->GetParam();
+        init_input_shapes(input_shapes);
+
+        const auto builder = get_builder(elem_types);
+        function = builder->getOriginal();
+        filter_shape_info(builder->get_constant_input_idces());
+        configuration.insert(additional_config.begin(), additional_config.end());
+        setIgnoreCallbackMode();
+    }
+
+protected:
+    std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override {
+        return std::make_shared<MatMulSoftmaxFunction>(inputDynamicShapes, types, matmul_type);
+    }
+};
+
+// CPU-specific accuracy test class for MatMulBiasScalability
+class MatMulBiasScalabilityAccuracy : public MatMul {
+public:
+    void SetUp() override {
+        std::vector<ov::test::InputShape> input_shapes;
+        std::vector<ov::element::Type> elem_types;
+        ov::AnyMap additional_config;
+        std::tie(input_shapes, elem_types, matmul_type, ref_num_nodes, ref_num_subgraphs, targetDevice, additional_config) = this->GetParam();
+        init_input_shapes(input_shapes);
+
+        const auto builder = get_builder(elem_types);
+        function = builder->getOriginal();
+        filter_shape_info(builder->get_constant_input_idces());
+        configuration.insert(additional_config.begin(), additional_config.end());
+        setIgnoreCallbackMode();
+    }
+
+protected:
+    std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override {
+        // Calculate repetitions from input shapes count: each repetition needs 3 inputs (data, weight, bias)
+        size_t num_repetitions = inputDynamicShapes.size() / 3;
+        return std::make_shared<MatMulBiasScalabilityFunction>(inputDynamicShapes, types, matmul_type, num_repetitions);
+    }
+};
+
+// CPU-specific accuracy test class for MatMulSoftmaxScalability
+class MatMulSoftmaxScalabilityAccuracy : public MatMul {
+public:
+    void SetUp() override {
+        std::vector<ov::test::InputShape> input_shapes;
+        std::vector<ov::element::Type> elem_types;
+        ov::AnyMap additional_config;
+        std::tie(input_shapes, elem_types, matmul_type, ref_num_nodes, ref_num_subgraphs, targetDevice, additional_config) = this->GetParam();
+        init_input_shapes(input_shapes);
+
+        const auto builder = get_builder(elem_types);
+        function = builder->getOriginal();
+        filter_shape_info(builder->get_constant_input_idces());
+        configuration.insert(additional_config.begin(), additional_config.end());
+        setIgnoreCallbackMode();
+    }
+
+protected:
+    std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) override {
+        // Calculate repetitions from input shapes count: each repetition needs 2 inputs (data, weight)
+        size_t num_repetitions = inputDynamicShapes.size() - 1;
+        return std::make_shared<MatMulSoftmaxScalabilityFunction>(inputDynamicShapes, types, matmul_type, num_repetitions);
+    }
+};
+
+} // namespace snippets
+} // namespace test
+} // namespace ov
+
+namespace ov {
+namespace test {
+namespace snippets {
+
 namespace {
 
 static inline std::vector<std::vector<element::Type>> precisions() {
@@ -207,6 +293,9 @@ std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalabil
     // batch example
     { {{}, {{2, 2, 64, 128}}}, {{}, {{2, 2, 128, 64}}}, {{}, {{2, 2, 1, 64}}},
       {{}, {{2, 2, 64, 64}}},  {{}, {{2, 2, 1, 64}}} },
+
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 197}}},
+      {{}, {{12, 197, 64}}},   {{}, {{12, 197, 64}}} },
 };
 
 // N = 3 repetitions (chain)
@@ -214,7 +303,10 @@ std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalabil
     // 3-stage chain: data0, W0, B0, W1, B1, W2, B2
     { {{}, {{1, 1, 32, 64}}},  {{}, {{1, 1, 64, 32}}},  {{}, {{1, 1, 1, 32}}},
       {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}},
-      {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}} }
+      {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 1, 32}}} },
+    { {{}, {{12, 197,  64}}},  {{}, {{12,  64, 197}}},  {{}, {{12, 197, 197}}},
+      {{}, {{12, 197,  64}}},  {{}, {{12, 197,  64}}},
+      {{}, {{12,  64, 197}}},  {{}, {{12, 197, 197}}} }
 };
 
 // N = 4 repetitions (chain)
@@ -223,7 +315,86 @@ std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalabil
     { {{}, {{1, 1, 16, 32}}},  {{}, {{1, 1, 32, 16}}},  {{}, {{1, 1, 1, 16}}},
       {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
       {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}} },
+    { {{}, {{12, 197,  64}}},  {{}, {{12,  64, 197}}},  {{}, {{12, 197, 197}}},
+      {{}, {{12, 197,  64}}},  {{}, {{12, 197,  64}}},
+      {{}, {{12,  64, 197}}},  {{}, {{12, 197, 197}}},
+      {{}, {{12, 197,  64}}},  {{}, {{12, 197,  64}}} }
+};
+
+// N = 5 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_5{
+    // 5-stage chain: data0, W0, B0, W1, B1, W2, B2, W3, B3, W4, B4
+    { {{}, {{1, 1, 16, 24}}},  {{}, {{1, 1, 24, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}},
       {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 1, 16}}} }
+};
+
+// N = 6 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_6{
+    // 6-stage chain: data0, W0, B0, W1, B1, W2, B2, W3, B3, W4, B4, W5, B5
+    { {{}, {{1, 1, 12, 16}}},  {{}, {{1, 1, 16, 12}}},  {{}, {{1, 1, 1, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 1, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 1, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 1, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 1, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 1, 12}}} }
+};
+
+// N = 7 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_7{
+    // 7-stage chain: data0, W0, B0, W1, B1, W2, B2, W3, B3, W4, B4, W5, B5, W6, B6
+    { {{}, {{1, 1, 8, 12}}},   {{}, {{1, 1, 12, 8}}},   {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}} }
+};
+
+// N = 8 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_bias_scalability_8{
+    // 8-stage chain: data0, W0, B0, W1, B1, W2, B2, W3, B3, W4, B4, W5, B5, W6, B6, W7, B7
+    { {{}, {{1, 1, 8, 12}}},   {{}, {{1, 1, 12, 8}}},   {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 1, 8}}} }
+};
+
+// MatMulSoftmaxScalability test shapes
+// N = 2 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_2{
+    // 2-stage chain: data0, W0, W1
+    { {{}, {{1, 1, 32, 64}}},  {{}, {{1, 1, 64, 32}}},  {{}, {{1, 1, 32, 32}}} },
+
+    // batch example
+    { {{}, {{2, 2, 64, 128}}}, {{}, {{2, 2, 128, 64}}}, {{}, {{2, 2, 64, 64}}} },
+
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}} },
+};
+
+// N = 3 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_3{
+    // 3-stage chain: data0, W0, W1, W2
+    { {{}, {{1, 1, 32, 64}}},  {{}, {{1, 1, 64, 32}}},  {{}, {{1, 1, 32, 32}}},  {{}, {{1, 1, 32, 32}}} },
+    { {{}, {{12, 197,  64}}},  {{}, {{12,  64, 197}}},  {{}, {{12, 197,  64}}},
+      {{}, {{12,  64, 197}}} }
+};
+
+// N = 4 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_4{
+    // 4-stage chain: data0, W0, W1, W2, W3
+    { {{}, {{1, 1, 16, 32}}},  {{}, {{1, 1, 32, 16}}},  {{}, {{1, 1, 16, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 16, 16}}} },
+    { {{}, {{12, 197,  64}}},  {{}, {{12,  64, 197}}},  {{}, {{12, 197,  64}}},
+      {{}, {{12,  64, 197}}},  {{}, {{12, 197,  64}}} }
 };
 
 INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N2, MatMulBiasScalability,
@@ -258,6 +429,227 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N4, MatMulBiasScal
                                  ::testing::Values(ov::test::utils::DEVICE_CPU),
                                  ::testing::Values(CPUTestUtils::empty_plugin_config)),
                          MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N5, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_5),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 5 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N6, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_6),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 6 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N7, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_7),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 7 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N8, MatMulBiasScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_8),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 8 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+// CPU-specific accuracy tests
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxAccuracy, MatMulSoftmaxAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // MatMul + Softmax
+                                 ::testing::Values(1), // Tokenized MatMul+Softmax
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N2, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_2),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 2 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N3, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_3),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 3 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N4, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_4),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 4 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N5, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_5),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(1), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(1), // m_num_repetitions = 5 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N6, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_6),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(2), // m_num_repetitions = 6 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N7, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_7),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(2), // m_num_repetitions = 7 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalabilityAccuracy_N8, MatMulBiasScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_bias_scalability_8),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(2), // m_num_repetitions = 8 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+// Accuracy test implementations
+TEST_P(MatMulSoftmaxAccuracy, CompareWithRefImpl) {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
+    abs_threshold = 1e-6;  // Accuracy threshold for MatMul+Softmax
+    run();
+    validateNumSubgraphs();
+}
+
+TEST_P(MatMulBiasScalabilityAccuracy, CompareWithRefImpl) {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
+    abs_threshold = 1e-6;  // Accuracy threshold for chained MatMul+Bias
+    run();
+    validateNumSubgraphs();
+}
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N2, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_2),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(2), // m_num_repetitions = 2 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N3, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_3),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(2), // m_num_repetitions = 3 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N4, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_4),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(4), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(4), // m_num_repetitions = 4 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N2, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_2),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // actual compiled nodes based on test results
+                                 ::testing::Values(2), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N3, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_3),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(2), // actual compiled nodes based on test results
+                                 ::testing::Values(2), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N4, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_4),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(4), // actual compiled nodes based on test results
+                                 ::testing::Values(4), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+TEST_P(MatMulSoftmaxScalabilityAccuracy, CompareWithRefImpl) {
+    SKIP_IF_CURRENT_TEST_IS_DISABLED()
+    abs_threshold = 1e-6;  // Accuracy threshold for chained MatMul+Softmax
+    run();
+    validateNumSubgraphs();
+}
 
 } // namespace
 } // namespace snippets

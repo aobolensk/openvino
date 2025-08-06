@@ -217,7 +217,6 @@ public:
 
 protected:
     std::shared_ptr<ov::Model> initOriginal() const override;
-    std::shared_ptr<ov::Model> initReference() const override;
 };
 
 //  MatMulBiasScalabilityFunction
@@ -272,7 +271,6 @@ public:
 
 protected:
     std::shared_ptr<ov::Model> initOriginal() const override;
-    std::shared_ptr<ov::Model> initReference() const override;
 
 private:
     size_t m_num_repetitions{};
@@ -294,6 +292,62 @@ public:
 
 protected:
     std::shared_ptr<ov::Model> initOriginal() const override;
+};
+
+//  MatMulSoftmaxScalabilityFunction
+//  Inputs: data0, W0, W1, ..., W{N-1}
+//  Constraint: M = 1 + N  (data0 + weight * N)
+//  Tokenization per stage: MatMul -> Softmax
+//  For FullyConnected: constant inputs are {i + 1 : W_i}
+//
+//       data0
+//         |
+//       MatMul            <--- W0
+//         |
+//       Softmax
+//         |
+//       MatMul            <--- W1
+//         |
+//       Softmax
+//         |
+//         ...
+//         |
+//       MatMul            <--- W{N-1}
+//         |
+//       Softmax
+//         |
+//       Result
+class MatMulSoftmaxScalabilityFunction : public MatMulFunctionBase {
+public:
+    explicit MatMulSoftmaxScalabilityFunction(const std::vector<PartialShape>& inputShapes,
+                                              const std::vector<ov::element::Type>& precisions,
+                                              MatMulType type,
+                                              size_t num_repetitions = 2)
+        : MatMulFunctionBase(inputShapes, type, precisions) {
+        const size_t M = input_shapes.size();
+        OPENVINO_ASSERT(M >= 2 && M == num_repetitions + 1,
+            std::string("Got invalid number of input shapes: expected 1 + N (data0 + weight * N), got ")
+            + std::to_string(M) + " but expected " + std::to_string(num_repetitions + 1));
+        // Derive the true stage count from shapes to avoid desync with test params:
+        m_num_repetitions = M - 1;
+    }
+
+    std::set<size_t> get_constant_input_idces() const override {
+        std::set<size_t> constant_idces;
+        if (matmul_type == MatMulType::FullyConnected) {
+            // Sequential layout: W_i at i+1
+            for (size_t i = 0; i < m_num_repetitions; ++i) {
+                constant_idces.insert(i + 1);  // weight indices
+            }
+        }
+        return constant_idces;
+    }
+
+protected:
+    std::shared_ptr<ov::Model> initOriginal() const override;
+
+private:
+    size_t m_num_repetitions{};
 };
 
 //         MatMul
