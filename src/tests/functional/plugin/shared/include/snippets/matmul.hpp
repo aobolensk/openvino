@@ -6,6 +6,12 @@
 
 #include "shared_test_classes/base/snippets_test_utils.hpp"
 #include "subgraph_matmul.hpp"
+#include "snippets/mha.hpp"
+
+#include <common_test_utils/ov_tensor_utils.hpp>
+
+#include "common_test_utils/common_utils.hpp"
+#include "functional_test_utils/skip_tests_config.hpp"
 
 namespace ov {
 namespace test {
@@ -28,6 +34,7 @@ protected:
      */
     void filter_shape_info(const std::set<size_t>& idces_to_remove);
     virtual std::shared_ptr<MatMulFunctionBase> get_builder(const std::vector<ov::element::Type>& types) = 0;
+    void generate_inputs(const std::vector<ov::Shape>& targetInputStaticShapes) override;
 
     MatMulType matmul_type;
 };

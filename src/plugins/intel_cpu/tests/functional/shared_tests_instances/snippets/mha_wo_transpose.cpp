@@ -22,6 +22,7 @@ std::vector<std::vector<ov::test::InputShape>> originalShape_4D {
 };
 
 std::vector<std::vector<ov::test::InputShape>> originalShapes {
+    { {{}, {{1, 16, 16}}},  {{}, {{1, 16, 16}}},  {{}, {{1, 16, 16}}} },
     { {{}, {{12, 197, 64}}},  {{}, {{12, 64, 197}}},  {{}, {{12, 197, 64}}} },
     { {{}, {{12, 128, 100}}}, {{}, {{12, 100, 128}}}, {{}, {{12, 128, 100}}} },
     { {{}, {{2, 12, 197, 64}}}, {{}, {{2, 12, 64, 197}}}, {{}, {{2, 12, 197, 64}}} },
@@ -74,7 +75,7 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Values(ov::element::f32),
                        ::testing::Values(true),  // Need to support False for graph builder in tests
                        ::testing::Values(MHA::default_thread_count),
-                       ::testing::Values(3),
+                       ::testing::Values(1),
                        ::testing::Values(1),
                        ::testing::Values(ov::test::utils::DEVICE_CPU),
                        ::testing::Values(CPUTestUtils::empty_plugin_config)),

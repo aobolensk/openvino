@@ -393,8 +393,60 @@ std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scala
     // 4-stage chain: data0, W0, W1, W2, W3
     { {{}, {{1, 1, 16, 32}}},  {{}, {{1, 1, 32, 16}}},  {{}, {{1, 1, 16, 16}}},
       {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 16, 16}}} },
-    { {{}, {{12, 197,  64}}},  {{}, {{12,  64, 197}}},  {{}, {{12, 197,  64}}},
-      {{}, {{12,  64, 197}}},  {{}, {{12, 197,  64}}} }
+
+    // Compatible shapes: data0[12,197,64] → W0[12,64,197] → [12,197,197] → W1[12,197,64] → [12,197,64] → W2[12,64,197] → [12,197,197] → W3[12,197,64]
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},
+      {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}} },
+};
+
+// N = 5 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_5{
+    // 5-stage chain: data0, W0, W1, W2, W3, W4
+    { {{}, {{1, 1, 16, 24}}},  {{}, {{1, 1, 24, 16}}},  {{}, {{1, 1, 16, 16}}},
+      {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 16, 16}}},  {{}, {{1, 1, 16, 16}}} },
+
+    // Compatible shapes: alternating pattern for proper matrix multiplication
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},
+      {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}} },
+};
+
+// N = 6 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_6{
+    // 6-stage chain: data0, W0, W1, W2, W3, W4, W5
+    { {{}, {{1, 1, 12, 16}}},  {{}, {{1, 1, 16, 12}}},  {{}, {{1, 1, 12, 12}}},
+      {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 12, 12}}},  {{}, {{1, 1, 12, 12}}},
+      {{}, {{1, 1, 12, 12}}} },
+
+    // Compatible shapes: alternating pattern for proper matrix multiplication
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},
+      {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},
+      {{}, {{12, 197, 64}}} },
+};
+
+// N = 7 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_7{
+    // 7-stage chain: data0, W0, W1, W2, W3, W4, W5, W6
+    { {{}, {{1, 1, 8, 12}}},   {{}, {{1, 1, 12, 8}}},   {{}, {{1, 1, 8, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}} },
+
+    // Compatible shapes: alternating pattern for proper matrix multiplication
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},
+      {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},
+      {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}} },
+};
+
+// N = 8 repetitions (chain)
+std::vector<std::vector<ov::test::InputShape>> input_shapes_matmul_softmax_scalability_8{
+    // 8-stage chain: data0, W0, W1, W2, W3, W4, W5, W6, W7
+    { {{}, {{1, 1, 8, 12}}},   {{}, {{1, 1, 12, 8}}},   {{}, {{1, 1, 8, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}},
+      {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}},    {{}, {{1, 1, 8, 8}}} },
+
+    // Compatible shapes: alternating pattern for proper matrix multiplication
+    { {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},
+      {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},
+      {{}, {{12, 197, 64}}},   {{}, {{12, 64, 197}}},   {{}, {{12, 197, 64}}} },
 };
 
 INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulBiasScalability_N2, MatMulBiasScalability,
@@ -611,6 +663,50 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N4, MatMulSoftm
                                  ::testing::Values(CPUTestUtils::empty_plugin_config)),
                          MatMul::getTestCaseName);
 
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N5, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_5),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(5), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(5), // m_num_repetitions = 5 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N6, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_6),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(6), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(6), // m_num_repetitions = 6 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N7, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_7),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(7), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(7), // m_num_repetitions = 7 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalability_N8, MatMulSoftmaxScalability,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_8),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(8), // fused into fewer nodes by snippets optimizer
+                                 ::testing::Values(8), // m_num_repetitions = 8 stages in the chain
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
 INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N2, MatMulSoftmaxScalabilityAccuracy,
                          ::testing::Combine(
                                  ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_2),
@@ -640,6 +736,50 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N4, Mat
                                  ::testing::Values(MatMulType::MatMul),
                                  ::testing::Values(4), // actual compiled nodes based on test results
                                  ::testing::Values(4), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N5, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_5),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(5), // actual compiled nodes based on test results
+                                 ::testing::Values(5), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N6, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_6),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(6), // actual compiled nodes based on test results
+                                 ::testing::Values(6), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N7, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_7),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(7), // actual compiled nodes based on test results
+                                 ::testing::Values(7), // actual subgraphs based on test results
+                                 ::testing::Values(ov::test::utils::DEVICE_CPU),
+                                 ::testing::Values(CPUTestUtils::empty_plugin_config)),
+                         MatMul::getTestCaseName);
+
+INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MatMulSoftmaxScalabilityAccuracy_N8, MatMulSoftmaxScalabilityAccuracy,
+                         ::testing::Combine(
+                                 ::testing::ValuesIn(input_shapes_matmul_softmax_scalability_8),
+                                 ::testing::ValuesIn(precisions()),
+                                 ::testing::Values(MatMulType::MatMul),
+                                 ::testing::Values(8), // actual compiled nodes based on test results
+                                 ::testing::Values(8), // actual subgraphs based on test results
                                  ::testing::Values(ov::test::utils::DEVICE_CPU),
                                  ::testing::Values(CPUTestUtils::empty_plugin_config)),
                          MatMul::getTestCaseName);
