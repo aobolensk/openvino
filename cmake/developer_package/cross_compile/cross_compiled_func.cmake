@@ -50,14 +50,6 @@ endif()
 set(_FLAGS_AVX "")  ## TBD is not defined for OV project yet
 set(_FLAGS_ANY "")  ##
 
-## way to duplicate file via cmake tool set
-if (UNIX)
-    ## Clone sources via sym link because it allow to modify original file in IDE along with debug
-    set(TO_DUPLICATE create_symlink)
-else()
-    ## Windows and others - just copy
-    set(TO_DUPLICATE copy)
-endif()
 
 set(DISPATCHER_GEN_SCRIPT         ${CMAKE_CURRENT_LIST_DIR}/cross_compiled_disp_gen.cmake)
 set(DISPATCHER_GEN_OPTIONS_HOLDER ${CMAKE_CURRENT_LIST_DIR}/cross_compiled_disp_gen_options.in)
@@ -113,7 +105,7 @@ function(cross_compiled_file TARGET)
             _remove_source_from_target(${TARGET} ${_src_name})
 
             if(_CUR_ARCH_SET)
-                _clone_source_to_target_with_archs(${TARGET} ${_src_name} "${_CUR_ARCH_SET}")
+                _process_source_to_target_with_archs(${TARGET} ${_src_name} "${_CUR_ARCH_SET}")
                 unset(_CUR_ARCH_SET)
             endif()
         endif()
@@ -128,44 +120,29 @@ endfunction()
 #  Add source to the TARGET per each element in ARCH_SET.
 #  Also provide corresponding arch specific flags and defines.
 #
-function(_clone_source_to_target_with_archs TARGET SOURCE ARCH_SET)
+function(_process_source_to_target_with_archs TARGET SOURCE ARCH_SET)
     foreach(_arch ${ARCH_SET})
-        set(_arch_dir cross-compiled/${_arch})
-
-        get_filename_component(ARCH_NAME ${SOURCE} NAME)
         get_filename_component(ARCH_INCLUDE_DIR ${SOURCE} DIRECTORY)
-        set(ARCH_SOURCE "${_arch_dir}/${ARCH_NAME}")
 
-        add_custom_command(
-                OUTPUT  ${ARCH_SOURCE}
-                COMMAND ${CMAKE_COMMAND} -E make_directory
-                        ${CMAKE_CURRENT_BINARY_DIR}/${_arch_dir}
-                COMMAND ${CMAKE_COMMAND} -E ${TO_DUPLICATE}
-                        ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
-                        ${CMAKE_CURRENT_BINARY_DIR}/${ARCH_SOURCE}
-                DEPENDS ${SOURCE}
-                VERBATIM
-                )
+        set(_source_abs "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}")
+        string(MD5 _src_md5 "${_source_abs}")
+        set(_objlib_name "${TARGET}__xarch_${_arch}_${_src_md5}")
 
-        set_property(SOURCE ${ARCH_SOURCE} APPEND_STRING PROPERTY COMPILE_OPTIONS
-                "${_FLAGS_${_arch}}")
+        add_library(${_objlib_name} OBJECT ${_source_abs})
 
-        set_property(SOURCE ${ARCH_SOURCE} APPEND PROPERTY COMPILE_DEFINITIONS
-                ${_DEFINE_${_arch}}
-                "XARCH=${_arch}" ## to replace XARCH with direct ARCH name
-                )
+        if(DEFINED _FLAGS_${_arch})
+            target_compile_options(${_objlib_name} PRIVATE ${_FLAGS_${_arch}})
+        endif()
+        target_compile_definitions(${_objlib_name} PRIVATE ${_DEFINE_${_arch}} "XARCH=${_arch}")
 
-        ## To make `#include "some.hpp"` valid
-        set_property(SOURCE ${ARCH_SOURCE} APPEND PROPERTY INCLUDE_DIRECTORIES
-                "${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_INCLUDE_DIR}")
+        target_include_directories(${_objlib_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_INCLUDE_DIR}")
+        target_include_directories(${_objlib_name} PRIVATE $<TARGET_PROPERTY:${TARGET},INCLUDE_DIRECTORIES>)
+        target_compile_definitions(${_objlib_name} PRIVATE $<TARGET_PROPERTY:${TARGET},COMPILE_DEFINITIONS>)
+        target_compile_options(${_objlib_name} PRIVATE $<TARGET_PROPERTY:${TARGET},COMPILE_OPTIONS>)
+        target_link_libraries(${_objlib_name} PRIVATE $<TARGET_PROPERTY:${TARGET},LINK_LIBRARIES> $<TARGET_PROPERTY:${TARGET},INTERFACE_LINK_LIBRARIES>)
 
-        ## disable pch for the source due to incompatibility with cross compilation
-        set_property(SOURCE ${ARCH_SOURCE} PROPERTY SKIP_PRECOMPILE_HEADERS ON)
-
-        list(APPEND _ARCH_SOURCES ${ARCH_SOURCE})
+        target_sources(${TARGET} PRIVATE $<TARGET_OBJECTS:${_objlib_name}>)
     endforeach()
-
-    target_sources(${TARGET} PRIVATE ${_ARCH_SOURCES})
 endfunction()
 
 
