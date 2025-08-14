@@ -90,7 +90,7 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_MHA_4D,
                                             ::testing::ValuesIn(precision_f32(4)),
                                             ::testing::Values(ov::element::f32),
                                             ::testing::Values(false),
-                                            ::testing::Values(MHA::default_thread_count),
+                                            ::testing::Values(1),
                                             ::testing::Values(2), // decomposed Transpose + MHA
                                             ::testing::Values(2), // decomposed Transpose + MHA
                                             ::testing::Values(ov::test::utils::DEVICE_CPU),

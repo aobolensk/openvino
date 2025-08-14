@@ -55,6 +55,7 @@ void GemmKaiKernelExecutor::update_config(const ov::snippets::lowered::Expressio
 }
 
 void GemmKaiKernelExecutor::execute(const GemmKaiKernelExecutor* executor, const call_args* args) {
+    std::printf("GemmKaiKernelExecutor::execute\n");
     OV_CPU_JIT_EMITTER_ASSERT(executor, "has nullptr executor");
     OV_CPU_JIT_EMITTER_ASSERT(args, "has nullptr args");
 
@@ -66,11 +67,23 @@ void GemmKaiKernelExecutor::execute(const GemmKaiKernelExecutor* executor, const
     const auto& K = config.get_K();
     const auto& lda = config.get_LDA();
     const auto& ldc = config.get_LDC();
+    const auto& beta = config.get_beta();
     const size_t& BLOCK_SIZE = ov::intel_cpu::aarch64::gemm_utils::repacking::get_inner_n_block(element::f32);
     size_t n_blocks = ov::snippets::utils::div_up(N, BLOCK_SIZE);
     const size_t lhs_stride = lda * sizeof(float);  // K not split, it's also K * sizeof(float)
     const size_t dst_stride_row = ldc * sizeof(float);
     const size_t dst_stride_col = sizeof(float);
+
+    // Debug: dump all parameters
+    std::printf("GemmKaiKernelExecutor::execute initial params:\n");
+    std::printf("  M=%ld, N=%ld, K=%ld\n", M, N, K);
+    std::printf("  lda=%ld, ldc=%ld\n", lda, ldc);
+    std::printf("  BLOCK_SIZE=%zu\n", BLOCK_SIZE);
+    std::printf("  n_blocks=%zu\n", n_blocks);
+    std::printf("  lhs_stride=%zu, dst_stride_row=%zu, dst_stride_col=%zu\n",
+                lhs_stride, dst_stride_row, dst_stride_col);
+    std::printf("  args->A=%p, args->B=%p, args->C=%p\n", args->A, args->B, args->C);
+
     for (size_t n_block = 0; n_block < n_blocks; n_block++) {
         size_t n_start = n_block * BLOCK_SIZE;
         size_t n_end = std::min(n_start + BLOCK_SIZE, static_cast<size_t>(N));
@@ -83,6 +96,11 @@ void GemmKaiKernelExecutor::execute(const GemmKaiKernelExecutor* executor, const
         // end emitters(adjusted copyb loop info as repack outside block loops).
         const float* rhs_ptr = static_cast<const float*>(args->B) + rhs_packed_offset / sizeof(float);
         float* dst_ptr = static_cast<float*>(args->C) + dst_offset / (sizeof(float));
+        // for (int64_t m = 0; m < M; ++m) {
+        //     std::memset(reinterpret_cast<char*>(dst_ptr) + m * dst_stride_row,
+        //                 0,
+        //                 n_block_size * dst_stride_col); // dst_stride_col is sizeof(float)
+        // }
         ukernel.run_matmul(M,
                            n_block_size,
                            K,
@@ -94,6 +112,12 @@ void GemmKaiKernelExecutor::execute(const GemmKaiKernelExecutor* executor, const
                            dst_stride_col,
                            std::numeric_limits<float>::lowest(),
                            std::numeric_limits<float>::max());
+        // Debug: dump first 16 elements of dst_ptr
+        std::printf("  dst_ptr after matmul (first 16 elements): ");
+        for (size_t i = 0; i < std::min(static_cast<size_t>(16), static_cast<size_t>(M * n_block_size)); ++i) {
+            std::printf("%.6f ", dst_ptr[i]);
+        }
+        std::printf("\n");
     }
 }
 

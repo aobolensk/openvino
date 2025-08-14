@@ -136,6 +136,7 @@ void GemmCopyBKaiKernelExecutor::update_config(const ov::snippets::lowered::Expr
 // for K*N(32*512) part and nb(n_block-64), repack each nb block(32*64) to nb(K+1)8nb.
 // for K*N(32*4) part, roundup to (32+1)*8.
 void GemmCopyBKaiKernelExecutor::execute(const GemmCopyBKaiKernelExecutor* executor, void* in0, void* out0) {
+    std::printf("GemmCopyBKaiKernelExecutor::execute\n");
     OV_CPU_JIT_EMITTER_ASSERT(executor, "has nullptr executor");
     // rhs is input, rhs_packed is output
     const auto& config = static_cast<const GemmCopyBKernelKaiConfig&>(executor->get_config());
@@ -172,6 +173,7 @@ void GemmCopyBKaiKernelExecutor::execute(const GemmCopyBKaiKernelExecutor* execu
                                                          0,
                                                          nullptr);
     }
+    std::printf("//GemmCopyBKaiKernelExecutor::execute\n");
 }
 
 }  // namespace ov::intel_cpu::aarch64

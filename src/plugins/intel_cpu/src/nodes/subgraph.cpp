@@ -655,6 +655,7 @@ Subgraph::ControlFlowPasses Subgraph::getControlFlowPasses() {
     SNIPPETS_REGISTER_PASS_RELATIVE_X86_64(Place::Before,
                                            ov::snippets::lowered::pass::InsertBuffers,
                                            ov::intel_cpu::pass::InsertBrgemmCopyBuffers);
+    // fwefwef
     SNIPPETS_REGISTER_PASS_RELATIVE_ARM64(Place::After,
                                           ov::snippets::lowered::pass::MarkLoops,
                                           ov::intel_cpu::pass::GemmCPUBlocking);
@@ -783,6 +784,8 @@ void Subgraph::prepareParams() {
             const auto code_gen_result = cache->getOrCreate(
                 SubgraphCodeGeneratorKey(subgraph_attrs, getBroadcastingMask(in_shapes)),
                 [this](const SubgraphCodeGeneratorKey& key) -> std::shared_ptr<SubgraphCodeGenerator> {
+                    std::printf("SubgraphCodeGeneratorKey - attrs: %p, broadcasting_mask: %u\n", 
+                               key.attrs.get(), key.broadcasting_mask);
                     return std::make_shared<SubgraphCodeGenerator>(key.attrs,
                                                                    std::make_shared<CPURuntimeConfig>(),
                                                                    external_ptrs_idces);

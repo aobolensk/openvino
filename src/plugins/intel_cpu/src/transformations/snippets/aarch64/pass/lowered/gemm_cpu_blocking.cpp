@@ -6,10 +6,13 @@
 
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <tuple>
 
 #include "openvino/core/type.hpp"
 #include "snippets/lowered/expression.hpp"
+#include "snippets/lowered/linear_ir.hpp"
+#include "snippets/lowered/specific_loop_iter_types.hpp"
 #include "snippets/utils/utils.hpp"
 #include "transformations/snippets/aarch64/op/gemm_cpu.hpp"
 
@@ -30,6 +33,46 @@ std::tuple<size_t, size_t, size_t> GemmCPUBlocking::get_blocking_params(
     const size_t& k_blk = ov::snippets::utils::get_full_dim_value();
 
     return std::make_tuple(m_blk, n_blk, k_blk);
+}
+
+bool GemmCPUBlocking::DummyPass::run([[maybe_unused]] snippets::lowered::LinearIR& linear_ir,
+                                     [[maybe_unused]] snippets::lowered::LinearIR::constExprIt begin,
+                                     [[maybe_unused]] snippets::lowered::LinearIR::constExprIt end) {
+    return true;
+}
+
+std::shared_ptr<snippets::lowered::pass::PassBase> GemmCPUBlocking::DummyPass::merge(
+    const std::shared_ptr<snippets::lowered::pass::PassBase>& other) {
+    return !other || ov::is_type<DummyPass>(other) ? std::make_shared<DummyPass>() : nullptr;
+}
+
+bool GemmCPUBlocking::is_kn_blocking_supported(const ov::element::Type& input_type) {
+    return input_type == ov::element::f32;
+}
+
+snippets::lowered::SpecificIterationHandlers GemmCPUBlocking::get_k_loop_handlers(size_t work_amount,
+                                                                                  size_t block_size) const {
+    snippets::lowered::SpecificIterationHandlers handlers =
+        ov::snippets::lowered::pass::BrgemmBlockingBase::get_default_blocking_loop_handlers(work_amount, block_size);
+    handlers.register_pass<ov::snippets::lowered::SpecificLoopIterType::FIRST_ITER, DummyPass>();
+    return handlers;
+}
+
+bool GemmCPUBlocking::mark_blocking_loops(snippets::lowered::LinearIR& linear_ir,
+                                          const snippets::lowered::LinearIR::constExprIt& gemm_it,
+                                          size_t m_block,
+                                          size_t n_block,
+                                          size_t k_block) {
+    // Call the base implementation to handle standard blocking
+    auto res = ov::snippets::lowered::pass::BrgemmBlockingBase::mark_blocking_loops(linear_ir,
+                                                                                     gemm_it,
+                                                                                     m_block,
+                                                                                     n_block,
+                                                                                     k_block);
+    
+    // ARM GEMM-specific post-processing can be added here if needed
+    // For now, just return the base result
+    return res;
 }
 
 }  // namespace ov::intel_cpu::pass

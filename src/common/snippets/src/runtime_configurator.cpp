@@ -77,6 +77,13 @@ const std::shared_ptr<RuntimeConfig>& RuntimeConfigurator::get_updated_config(co
     update(linear_ir);
     // Note: after 'update' is finished, io_shapes can be corrupted, so we move it to latest_shapes to avoid copying
     m_config->latest_shapes = std::move(m_config->io_shapes);
+    // Debug: dump latest shapes
+    std::stringstream debug_out;
+    debug_out << "Latest shapes dump:\n";
+    for (size_t i = 0; i < m_config->latest_shapes.size(); ++i) {
+        debug_out << "\t[" << i << "] " << ov::Shape(m_config->latest_shapes[i]) << "\n";
+    }
+    std::cout << debug_out.str();
     return m_config;
 }
 
