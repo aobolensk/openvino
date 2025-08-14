@@ -29,6 +29,7 @@ env:
 
 jobs:
   Smart_CI:
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     outputs:
       affected_components: "${{ steps.smart_ci.outputs.affected_components }}"
@@ -59,6 +60,7 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-win-32-cores-128gb
     env:
       CMAKE_BUILD_TYPE: 'Release'
@@ -323,6 +325,7 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-win-32-cores-128gb
     env:
       CMAKE_BUILD_TYPE: 'Release'
@@ -405,6 +408,7 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-win-8-cores-16gb
     env:
       OPENVINO_REPO: "${{ github.workspace }}\\openvino"
@@ -475,6 +479,7 @@ jobs:
     name: ci/gha_overall_status_windows_cc
     needs: [Smart_CI, Build, CC_Build, CPU_Functional_Tests]
     if: ${{ always() }}
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check status of all jobs

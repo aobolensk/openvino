@@ -10,6 +10,6 @@ jobs:
     defaults:
       run:
         shell: bash
-    if: ${{ github.event_name == 'merge_group' }}
+    if: ${{ github.event_name == 'merge_group' && github.repository_owner == 'openvinotoolkit' }}
     steps:
       - run: echo "Just a stub check to keep Jenkins running in pre-commits but not in merge queue"

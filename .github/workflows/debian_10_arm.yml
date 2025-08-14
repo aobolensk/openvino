@@ -22,6 +22,7 @@ permissions: read-all
 
 jobs:
   Smart_CI:
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     outputs:
       affected_components: "${{ steps.smart_ci.outputs.affected_components }}"
@@ -54,6 +55,7 @@ jobs:
 
   Docker:
     needs: Smart_CI
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-linux-4-cores-8gb-arm-docker-build
     container:
       image: openvinogithubactions.azurecr.io/docker_build:0.2
@@ -141,6 +143,7 @@ jobs:
     name: ci/gha_overall_status_debian_10_arm
     needs: [Smart_CI, Build, CXX_Unit_Tests]
     if: ${{ always() }}
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check status of all jobs

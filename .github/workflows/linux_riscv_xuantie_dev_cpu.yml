@@ -43,6 +43,7 @@ env:
 
 jobs:
   Smart_CI:
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     outputs:
       affected_components: "${{ steps.smart_ci.outputs.affected_components }}"
@@ -77,6 +78,7 @@ jobs:
 
   Docker:
     needs: Smart_CI
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-linux-4-cores-16gb-docker-build
     if: "!needs.smart_ci.outputs.skip_workflow"
     container:
@@ -107,6 +109,7 @@ jobs:
     defaults:
       run:
         shell: bash
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-linux-16-cores-32gb
     container:
       image: ${{ fromJSON(needs.docker.outputs.images).ov_build.ubuntu_22_04_riscv_xuantie }}
@@ -222,6 +225,7 @@ jobs:
     name: CPU functional tests
     timeout-minutes: 30
     needs: [Smart_CI, Docker, Build]
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: aks-linux-4-cores-16gb
     container:
       image: ${{ fromJSON(needs.docker.outputs.images).ov_test.ubuntu_22_04_riscv_xuantie }}
@@ -264,6 +268,7 @@ jobs:
     name: ci/gha_overall_status_linux_riscv_xuantie
     needs: [Smart_CI, Build, CPU_Functional_Tests]
     if: ${{ always() }}
+    if: ${{ github.repository_owner == 'openvinotoolkit' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check status of all jobs
