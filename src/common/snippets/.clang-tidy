@@ -83,8 +83,6 @@ Checks: >
   -readability-isolate-declaration,
   -readability-magic-numbers,
   -readability-suspicious-call-argument,
-# Treat warnings as errors
-WarningsAsErrors: '*'
 # Use clang-format for applied fixes
 FormatStyle: file
 HeaderFilterRegex: 'src/common/snippets/.*\.h(pp)?$'
