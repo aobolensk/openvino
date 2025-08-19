@@ -1,0 +1,252 @@
+name: Android ARM64 with vcpkg (Public Runners)
+on:
+  workflow_dispatch:
+    inputs:
+      target-branch:
+        description: 'Target branch for the build; taken from event context by default'
+        type: string
+        required: false
+  pull_request:
+  merge_group:
+  push:
+
+concurrency:
+  # github.ref is not unique in post-commit
+  group: ${{ github.event_name == 'push' && github.run_id || github.ref }}-android-arm64-vcpkg-public
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  Build:
+    timeout-minutes: 300
+    defaults:
+      run:
+        shell: bash
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive # to prevent apt-get from waiting user input
+      CMAKE_GENERATOR: 'Ninja'
+      OPENVINO_REPO: '${{ github.workspace }}/openvino'
+      BUILD_DIR: '${{ github.workspace }}/build'
+      ANDROID_SDK_VERSION: 29
+      ANDROID_ABI_CONFIG: arm64-v8a
+    steps:
+      - name: Clone OpenVINO
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        timeout-minutes: 15
+        with:
+          path: 'openvino'
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@afb4c9964b521afb97c864b7d40b11e6911bd410 # v1.5.0
+        id: setup-ndk
+        with:
+          ndk-version: 'r26d'
+          add-to-path: true
+
+      - name: Set Android NDK environment
+        run: |
+          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+
+      - name: Init submodules
+        run: |
+          pushd ${OPENVINO_REPO}
+            git submodule update --init --recursive
+          popd
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            autoconf \
+            automake \
+            autoconf-archive \
+            linux-libc-dev \
+            build-essential \
+            scons
+
+      #
+      # Print system info
+      #
+
+      - name: System info
+        uses: ./openvino/.github/actions/system_info
+
+      #
+      # Build
+      #
+
+      - name: CMake - configure
+        run: |
+          cmake \
+            -G '${{ env.CMAKE_GENERATOR }}' \
+            -DENABLE_INTEL_GPU=OFF \
+            -DENABLE_TESTS=ON \
+            -DENABLE_FASTER_BUILD=ON \
+            -DENABLE_PYTHON=OFF \
+            -DENABLE_WHEEL=OFF \
+            -DENABLE_SAMPLES=OFF \
+            -DANDROID_ABI=${{ env.ANDROID_ABI_CONFIG }} \
+            -DANDROID_PLATFORM=${{ env.ANDROID_SDK_VERSION }} \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+            -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -S ${OPENVINO_REPO} \
+            -B ${BUILD_DIR}
+
+      - name: Cmake - build
+        run: cmake --build ${BUILD_DIR} --parallel 2
+
+      #
+      # Upload build logs and artifacts
+      #
+      - name: Upload build logs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: build_logs_public
+          path: ${{ env.BUILD_DIR }}/CMakeFiles/CMakeOutput.log
+          if-no-files-found: 'ignore'
+
+      - name: Upload CPU unit tests binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ov_cpu_unit_tests_android_arm64_public
+          path: ${{ env.BUILD_DIR }}/bin/*/ov_cpu_unit_tests
+          if-no-files-found: 'error'
+
+  Test:
+    needs: [Build]
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_API_LEVEL: 29
+      ANDROID_TARGET: google_apis
+      ANDROID_ARCH: arm64-v8a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        timeout-minutes: 15
+
+      - name: Download CPU unit tests binary
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ov_cpu_unit_tests_android_arm64_public
+          path: ./android_tests
+
+      - name: Set up Java 17
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4.5.0
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3.2.2
+        with:
+          api-level: ${{ env.ANDROID_API_LEVEL }}
+          target: ${{ env.ANDROID_TARGET }}
+          arch: ${{ env.ANDROID_ARCH }}
+          script: |
+            echo "Android SDK setup completed"
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-public-${{ env.ANDROID_API_LEVEL }}-${{ env.ANDROID_TARGET }}-${{ env.ANDROID_ARCH }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2.34.0
+        with:
+          api-level: ${{ env.ANDROID_API_LEVEL }}
+          target: ${{ env.ANDROID_TARGET }}
+          arch: ${{ env.ANDROID_ARCH }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run CPU unit tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2.34.0
+        with:
+          api-level: ${{ env.ANDROID_API_LEVEL }}
+          target: ${{ env.ANDROID_TARGET }}
+          arch: ${{ env.ANDROID_ARCH }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -e
+            
+            # Wait for device to be ready
+            adb wait-for-device
+            
+            # Verify test binary exists and make it executable
+            if [ ! -f "./android_tests/ov_cpu_unit_tests" ]; then
+              echo "Error: ov_cpu_unit_tests binary not found"
+              exit 1
+            fi
+            chmod +x ./android_tests/ov_cpu_unit_tests
+            
+            # Clean up any previous test artifacts on device
+            adb shell "rm -f /data/local/tmp/ov_cpu_unit_tests /data/local/tmp/test_results.xml" || true
+            
+            # Push test binary to device
+            echo "Pushing test binary to device..."
+            adb push ./android_tests/ov_cpu_unit_tests /data/local/tmp/ov_cpu_unit_tests
+            
+            # Verify binary was pushed and is executable
+            adb shell "ls -la /data/local/tmp/ov_cpu_unit_tests"
+            adb shell "chmod 755 /data/local/tmp/ov_cpu_unit_tests"
+            
+            # Run tests with timeout and error handling
+            echo "Running CPU unit tests..."
+            adb shell "cd /data/local/tmp && timeout 1800 ./ov_cpu_unit_tests --gtest_output=xml:/data/local/tmp/test_results.xml" || {
+              echo "Test execution failed or timed out"
+              adb shell "ls -la /data/local/tmp/" || true
+              exit 1
+            }
+            
+            # Pull test results
+            echo "Pulling test results..."
+            adb pull /data/local/tmp/test_results.xml ./test_results.xml || {
+              echo "Warning: Could not pull test results file"
+              # Try to get any output files that might exist
+              adb shell "ls -la /data/local/tmp/" || true
+              adb shell "cat /data/local/tmp/test_results.xml" || echo "No test results file found"
+            }
+
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cpu_unit_tests_results_public
+          path: ./test_results.xml
+          if-no-files-found: 'ignore'
+
+  Overall_Status:
+    name: ci/gha_overall_status_android_arm64_public
+    needs: [Build, Test]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check status of all jobs
+        if: >-
+          ${{
+            contains(needs.*.result, 'failure') ||
+            contains(needs.*.result, 'cancelled')
+          }}
+        run: exit 1
