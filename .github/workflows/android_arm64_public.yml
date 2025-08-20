@@ -115,7 +115,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ov_cpu_unit_tests_android_arm64_public
-          path: ${{ env.BUILD_DIR }}/bin/*/ov_cpu_unit_tests
+          path: ${{ env.BUILD_DIR }}/bin/**/ov_cpu_unit_tests
           if-no-files-found: 'error'
 
   Test:
