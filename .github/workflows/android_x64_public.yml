@@ -27,6 +27,10 @@ jobs:
     env:
       DEBIAN_FRONTEND: noninteractive # to prevent apt-get from waiting user input
       CMAKE_GENERATOR: 'Ninja'
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
       OPENVINO_REPO: '${{ github.workspace }}/openvino'
       BUILD_DIR: '${{ github.workspace }}/build'
       ANDROID_SDK_VERSION: 29
@@ -66,7 +70,8 @@ jobs:
             autoconf-archive \
             linux-libc-dev \
             build-essential \
-            scons
+            scons \
+            ccache
 
       #
       # Print system info
@@ -74,6 +79,22 @@ jobs:
 
       - name: System info
         uses: ./openvino/.github/actions/system_info
+
+      - name: Setup ccache
+        run: |
+          mkdir -p ${{ env.CCACHE_DIR }}
+          ccache --set-config=max_size=${{ env.CCACHE_MAXSIZE }}
+          ccache --set-config=compression=true
+          ccache --zero-stats
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-android-x64-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ccache-android-x64-${{ github.ref }}-
+            ccache-android-x64-
 
       #
       # Build
@@ -92,6 +113,8 @@ jobs:
             -DANDROID_ABI=${{ env.ANDROID_ABI_CONFIG }} \
             -DANDROID_PLATFORM=${{ env.ANDROID_SDK_VERSION }} \
             -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=${{ env.CMAKE_CXX_COMPILER_LAUNCHER }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=${{ env.CMAKE_C_COMPILER_LAUNCHER }} \
             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -S ${OPENVINO_REPO} \
@@ -99,6 +122,9 @@ jobs:
 
       - name: Cmake - build
         run: cmake --build ${BUILD_DIR} --parallel 2 -t ov_cpu_func_tests ov_cpu_unit_tests
+
+      - name: Show ccache statistics
+        run: ccache --show-stats
 
       #
       # Upload build logs and artifacts
@@ -190,44 +216,18 @@ jobs:
           disable-animations: true
           script: |
             set -e
-            
-            # Wait for device to be ready
             adb wait-for-device
-            
-            # Verify test binary exists and make it executable
-            if [ ! -f "./android_tests/ov_cpu_unit_tests" ]; then
-              echo "Error: ov_cpu_unit_tests binary not found"
-              exit 1
-            fi
+            [ -f "./android_tests/ov_cpu_unit_tests" ] || { echo "Error: ov_cpu_unit_tests binary not found"; exit 1; }
             chmod +x ./android_tests/ov_cpu_unit_tests
-            
-            # Clean up any previous test artifacts on device
             adb shell "rm -f /data/local/tmp/ov_cpu_unit_tests /data/local/tmp/test_results.xml" || true
-            
-            # Push test binary to device
             echo "Pushing test binary to device..."
             adb push ./android_tests/ov_cpu_unit_tests /data/local/tmp/ov_cpu_unit_tests
-            
-            # Verify binary was pushed and is executable
             adb shell "ls -la /data/local/tmp/ov_cpu_unit_tests"
             adb shell "chmod 755 /data/local/tmp/ov_cpu_unit_tests"
-            
-            # Run tests with timeout and error handling
             echo "Running CPU unit tests..."
-            adb shell "cd /data/local/tmp && timeout 1800 ./ov_cpu_unit_tests --gtest_output=xml:/data/local/tmp/test_results.xml" || {
-              echo "Test execution failed or timed out"
-              adb shell "ls -la /data/local/tmp/" || true
-              exit 1
-            }
-            
-            # Pull test results
+            adb shell "cd /data/local/tmp && timeout 1800 ./ov_cpu_unit_tests --gtest_output=xml:/data/local/tmp/test_results.xml" || { echo "Test execution failed"; adb shell "ls -la /data/local/tmp/" || true; exit 1; }
             echo "Pulling test results..."
-            adb pull /data/local/tmp/test_results.xml ./test_results.xml || {
-              echo "Warning: Could not pull test results file"
-              # Try to get any output files that might exist
-              adb shell "ls -la /data/local/tmp/" || true
-              adb shell "cat /data/local/tmp/test_results.xml" || echo "No test results file found"
-            }
+            adb pull /data/local/tmp/test_results.xml ./test_results.xml || { echo "Warning: Could not pull test results"; adb shell "ls -la /data/local/tmp/" || true; adb shell "cat /data/local/tmp/test_results.xml" || echo "No test results file"; }
 
       - name: Upload test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
