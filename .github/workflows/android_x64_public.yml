@@ -219,15 +219,15 @@ jobs:
             adb wait-for-device
             [ -f "./android_tests/ov_cpu_unit_tests" ] || { echo "Error: ov_cpu_unit_tests binary not found"; exit 1; }
             chmod +x ./android_tests/ov_cpu_unit_tests
-            adb shell "rm -f /data/local/tmp/ov_cpu_unit_tests /data/local/tmp/test_results.xml" || true
-            echo "Pushing test binary to device..."
-            adb push ./android_tests/ov_cpu_unit_tests /data/local/tmp/ov_cpu_unit_tests
-            adb shell "ls -la /data/local/tmp/ov_cpu_unit_tests"
-            adb shell "chmod 755 /data/local/tmp/ov_cpu_unit_tests"
+            adb shell "rm -rf /data/local/tmp/ov_test && mkdir -p /data/local/tmp/ov_test" || true
+            echo "Pushing test binary and libraries to device..."
+            adb push ./android_tests/ov_cpu_unit_tests /data/local/tmp/ov_test/ov_cpu_unit_tests
+            for lib in ./android_tests/*.so*; do [ -f "$lib" ] && adb push "$lib" /data/local/tmp/ov_test/ || true; done
+            adb shell "chmod 755 /data/local/tmp/ov_test/ov_cpu_unit_tests"
             echo "Running CPU unit tests..."
-            adb shell "cd /data/local/tmp && timeout 1800 ./ov_cpu_unit_tests --gtest_output=xml:/data/local/tmp/test_results.xml" || { echo "Test execution failed"; adb shell "ls -la /data/local/tmp/" || true; exit 1; }
+            adb shell "cd /data/local/tmp/ov_test && export LD_LIBRARY_PATH=/data/local/tmp/ov_test:$LD_LIBRARY_PATH && timeout 1800 ./ov_cpu_unit_tests --gtest_output=xml:/data/local/tmp/ov_test/test_results.xml" || { echo "Test execution failed"; adb shell "ls -la /data/local/tmp/ov_test/" || true; exit 1; }
             echo "Pulling test results..."
-            adb pull /data/local/tmp/test_results.xml ./test_results.xml || { echo "Warning: Could not pull test results"; adb shell "ls -la /data/local/tmp/" || true; adb shell "cat /data/local/tmp/test_results.xml" || echo "No test results file"; }
+            adb pull /data/local/tmp/ov_test/test_results.xml ./test_results.xml || { echo "Warning: Could not pull test results"; adb shell "ls -la /data/local/tmp/ov_test/" || true; adb shell "cat /data/local/tmp/ov_test/test_results.xml" || echo "No test results file"; }
 
       - name: Upload test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
