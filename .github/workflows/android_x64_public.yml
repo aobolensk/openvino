@@ -140,7 +140,7 @@ jobs:
       - name: Upload CPU unit tests binary
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ov_cpu_unit_tests_android_x86_64_public
+          name: ov_cpu_tests_android_x86_64_public
           path: ${{ github.workspace }}/openvino/bin/intel64/Release
           if-no-files-found: 'error'
 
