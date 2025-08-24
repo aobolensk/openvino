@@ -206,7 +206,7 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       - name: Run CPU unit tests on emulator
-        continue-on-error: true
+        id: unit-tests
         uses: reactivecircus/android-emulator-runner@v2.34.0
         with:
           api-level: ${{ env.ANDROID_API_LEVEL }}
@@ -232,7 +232,7 @@ jobs:
 
       - name: Run CPU functional tests on emulator
         if: always()
-        continue-on-error: true
+        id: functional-tests
         uses: reactivecircus/android-emulator-runner@v2.34.0
         with:
           api-level: ${{ env.ANDROID_API_LEVEL }}
