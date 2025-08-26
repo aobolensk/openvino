@@ -16,6 +16,7 @@
 #include "openvino/core/node.hpp"
 #include "openvino/core/type.hpp"
 #include "openvino/op/logical_not.hpp"
+#include "openvino/op/constant.hpp"
 #include "openvino/op/prelu.hpp"
 #include "openvino/opsets/opset1.hpp"
 #include "snippets/op/brgemm.hpp"

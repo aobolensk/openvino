@@ -161,6 +161,7 @@
 #include "snippets/pass/mha_tokenization.hpp"
 #include "snippets/pass/mlp_seq_tokenization.hpp"
 #include "snippets/pass/tokenization.hpp"
+#include "snippets/pass/transform_convert.hpp"
 
 // Misc
 #include "nodes/fake_quantize.h"

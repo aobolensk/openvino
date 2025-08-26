@@ -304,9 +304,9 @@ bool SnippetsMarkSkipped::run_on_model(const std::shared_ptr<ov::Model>& m) {
                     channelAxis = DEFAULT_AXIS;
                 }
             }
-        } else if (isSuitableConvert(node)) {
-            SetSnippetsNodeType(node, snippets::pass::SnippetsNodeType::SkippedByPlugin);
-            channelAxis = DEFAULT_AXIS;
+        // } else if (isSuitableConvert(node)) {
+        //     SetSnippetsNodeType(node, snippets::pass::SnippetsNodeType::SkippedByPlugin);
+        //     channelAxis = DEFAULT_AXIS;
         } else {
             for (const auto fusingChainType : getContinuableChains(node)) {
                 if (isSuitableChildForFusingBias(node, channelAxis)) {

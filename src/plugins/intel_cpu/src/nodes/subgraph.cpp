@@ -218,6 +218,8 @@ Subgraph::Subgraph(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr
     is_dynamic = isDynamicNgraphNode(op);
 }
 
+Subgraph::~Subgraph() = default;
+
 uint64_t Subgraph::getBodyHash(const std::shared_ptr<snippets::op::Subgraph>& snippet) {
     uint64_t seed = 0;
     ov::snippets::pass::Hash hash_function(seed);

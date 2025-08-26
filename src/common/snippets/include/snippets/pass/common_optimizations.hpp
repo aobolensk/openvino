@@ -11,6 +11,7 @@ namespace ov::snippets::pass {
 
 class CommonOptimizations : public ov::pass::MatcherPass {
     class SubgraphPass;
+public:
     class SubgraphManager;
     friend class ExtractConstants;
     friend class ExtractUnsupportedTransposes;

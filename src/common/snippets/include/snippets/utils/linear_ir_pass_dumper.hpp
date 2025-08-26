@@ -6,7 +6,6 @@
 #include <string>
 #include <utility>
 #ifdef SNIPPETS_DEBUG_CAPS
-
 #    include "openvino/util/file_util.hpp"
 #    include "snippets/lowered/linear_ir.hpp"
 #    include "snippets/lowered/pass/serialize_control_flow.hpp"

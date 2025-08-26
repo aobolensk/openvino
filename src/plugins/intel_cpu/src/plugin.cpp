@@ -336,6 +336,20 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
 
     const auto& config = orig_config;
     const std::shared_ptr<ov::Model> cloned_model = model->clone();
+    
+    // Debug: Check if Convert operations exist in original model
+    int convert_count = 0;
+    for (const auto& node : cloned_model->get_ordered_ops()) {
+        if (ov::is_type<ov::op::v0::Convert>(node)) {
+            convert_count++;
+            std::cerr << "[Plugin::compile_model] Found Convert operation in original model: " 
+                      << node->get_friendly_name() 
+                      << " (" << node->get_input_element_type(0) << " -> " << node->get_output_element_type(0) << ")"
+                      << std::endl;
+        }
+    }
+    std::cerr << "[Plugin::compile_model] Total Convert operations in original model: " << convert_count << std::endl;
+    
     Config::ModelType modelType = getModelType(model);
     DEBUG_LOG(PrintableModel(*cloned_model, "org_"));
 
@@ -357,7 +371,9 @@ std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<
     }
 
     transformations.PostLpt();
+    DEBUG_LOG(PrintableModel(*cloned_model, "org_"));
     transformations.Snippets();
+    DEBUG_LOG(PrintableModel(*cloned_model, "org_"));
 
     transformations.CpuSpecificOpSet();
 

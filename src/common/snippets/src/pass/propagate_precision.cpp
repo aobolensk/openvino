@@ -46,6 +46,10 @@ bool ov::snippets::pass::PropagatePrecision::run_on_model(const std::shared_ptr<
         ov::op::util::process_subgraph(*this, op);
 
         auto type_info = op->get_type_info();
+        // Only process ops supported by the target machine. Skip others (e.g., Constant)
+        if (!target_machine->has(type_info)) {
+            continue;
+        }
         auto exec = target_machine->get_supported_precisions(type_info);
         const auto& supported_precisions = exec(op);
 

@@ -7,6 +7,8 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <iostream>
+#include <sstream>
 
 #include "openvino/core/except.hpp"
 #include "openvino/core/node.hpp"
@@ -27,10 +29,26 @@ std::function<std::shared_ptr<Emitter>(const lowered::ExpressionPtr&)> TargetMac
 std::function<std::set<ov::element::TypeVector>(const std::shared_ptr<ov::Node>&)>
 TargetMachine::get_supported_precisions(const ov::DiscreteTypeInfo& type) const {
     auto jitter = jitters.find(type);
+
+
+    std::string registered_ops;
+    {
+        std::ostringstream s;
+        bool first = true;
+        for (const auto& kv : jitters) {
+            if (!first) s << ", ";
+            s << kv.first.name;
+            first = false;
+        }
+        registered_ops = s.str();
+    }
+
     OPENVINO_ASSERT(jitter != jitters.end(),
                     "Supported precisions set is not available for ",
                     type.name,
-                    " operation.");
+                    " operation. Registered emitters: ",
+                    registered_ops,
+                    ".");
     return jitter->second.second;
 }
 

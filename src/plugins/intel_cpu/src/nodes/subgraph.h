@@ -37,7 +37,7 @@ namespace ov::intel_cpu::node {
 class Subgraph : public Node {
 public:
     Subgraph(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr& context);
-    ~Subgraph() override = default;
+    ~Subgraph() override;
 
     void getSupportedDescriptors() override {};
     void initSupportedPrimitiveDescriptors() override;

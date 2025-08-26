@@ -5,6 +5,7 @@
 #include "snippets/pass/common_optimizations.hpp"
 
 #include <memory>
+#include <iostream>
 
 #include "openvino/core/type.hpp"
 #include "openvino/pass/manager.hpp"
@@ -35,14 +36,26 @@ CommonOptimizations::CommonOptimizations(const SnippetsTokenization::Config& con
     ov::graph_rewrite_callback callback = [&](ov::pass::pattern::Matcher& m) {
         OV_ITT_SCOPED_TASK(ov::pass::itt::domains::SnippetsTransform, "Snippets::CommonOptimizations");
 
+        std::cerr << "[CommonOptimizations] Callback triggered! Processing subgraph..." << std::endl;
         auto subgraph = ov::as_type_ptr<ov::snippets::op::Subgraph>(m.get_match_root());
+        std::cerr << "[Snippets::CommonOptimizations] Enter callback for subgraph '"
+                  << (subgraph ? subgraph->get_friendly_name() : std::string("<null>"))
+                  << "'" << std::endl;
         if (transformation_callback(subgraph)) {
+            std::cerr << "[Snippets::CommonOptimizations] transformation_callback vetoed optimization for '"
+                      << (subgraph ? subgraph->get_friendly_name() : std::string("<null>"))
+                      << "' — skipping." << std::endl;
             return false;
         }
 
         const auto& body = subgraph->body_ptr();
         const auto is_quantized = subgraph->is_quantized();
         const auto is_domain_sensitive = subgraph->has_domain_sensitive_ops();
+        std::cerr << "[Snippets::CommonOptimizations] body nodes: "
+                  << (body ? body->get_ops().size() : 0)
+                  << ", is_quantized=" << (is_quantized ? "true" : "false")
+                  << ", is_domain_sensitive=" << (is_domain_sensitive ? "true" : "false")
+                  << std::endl;
 
         // Firstly, we should transform all original Converts inside body to ConvertTruncation to save original
         // behavior. Then if Subgraph contains FakeQuantize we enable specific transformation for quantized subgraphs.
@@ -62,14 +75,22 @@ CommonOptimizations::CommonOptimizations(const SnippetsTokenization::Config& con
                                ov::snippets::pass::SplitDimensionM,
                                is_domain_sensitive && config.get_split_m_dimension(),
                                config.get_concurrency());
+        std::cerr << "[Snippets::CommonOptimizations] Running SubgraphManager passes..." << std::endl;
         subgraph_manager.run_passes(subgraph);
+        std::cerr << "[Snippets::CommonOptimizations] SubgraphManager passes completed." << std::endl;
 
         // Validate the body after all common optimizations
         ov::snippets::pass::Validate(get_pass_config()).run_on_model(body);
+        std::cerr << "[Snippets::CommonOptimizations] Validate completed." << std::endl;
+
+        std::cerr << "[Snippets::CommonOptimizations] Callback finished successfully for '"
+                  << (subgraph ? subgraph->get_friendly_name() : std::string("<null>"))
+                  << "'." << std::endl;
 
         return true;
     };
 
+    std::cerr << "Register! CommonOptimizations (looking for Subgraph nodes)" << std::endl;
     auto m = std::make_shared<ov::pass::pattern::Matcher>(ov::pass::pattern::wrap_type<ov::snippets::op::Subgraph>(),
                                                           matcher_name);
     this->register_matcher(m, callback);

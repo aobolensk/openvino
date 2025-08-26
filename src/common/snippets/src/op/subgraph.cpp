@@ -83,6 +83,13 @@
 #include "snippets/pass/canonicalization.hpp"
 #include "snippets/pass/convert_constants.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
+#include "snippets/pass/extract_constants.hpp"
+#include "snippets/pass/subgraph_manager.hpp"
+#include "snippets/op/convert_truncation.hpp"
+#include "snippets/pass/transform_convert.hpp"
+#include "snippets/op/convert_truncation.hpp"
+#include "snippets/op/convert_saturation.hpp"
+#include "snippets/op/scalar.hpp"
 #include "snippets/pass/fuse_transpose_brgemm.hpp"
 #include "snippets/pass/gn_decomposition.hpp"
 #include "snippets/pass/manager.hpp"
@@ -466,6 +473,8 @@ void Subgraph::data_flow_transformations(
 
     ov::snippets::pass::Manager manager(pass_config, "SnippetsDataFlowManager");
     manager.register_pass<snippets::pass::Canonicalization>(blocked_input_shapes);
+    // Specialize generic Convert to ConvertTruncation early to align with backend emitters
+    manager.register_pass<snippets::pass::TransformConvertToConvertTruncation>();
     manager.register_pass<snippets::pass::AlignElementTypes>(input_precisions, output_precisions);
 
     if (config.m_has_domain_sensitive_ops) {
@@ -485,7 +494,103 @@ void Subgraph::data_flow_transformations(
     manager.register_pass<snippets::pass::ConvertConstantsToScalars>();
 
     manager.register_positioned_passes(backend_passes);
+    // Debug and harden: replace any remaining plain Convert with ConvertTruncation and scalar Constants with
+    // snippets::op::Scalar before running passes
+    {
+        size_t cnt_plain = 0, cnt_replaced = 0;
+        std::vector<std::string> plain_names;
+        size_t cnt_const = 0, cnt_const_scalar_repl = 0;
+        std::vector<std::string> const_names;
+        for (const auto& n : body_ptr()->get_ops()) {
+            if (ov::is_type<ov::op::v0::Convert>(n) &&
+                !ov::is_type_any_of<ov::snippets::op::ConvertTruncation, ov::snippets::op::ConvertSaturation>(n)) {
+                ++cnt_plain;
+                plain_names.push_back(n->get_friendly_name());
+                auto cnv = ov::as_type_ptr<ov::op::v0::Convert>(n);
+                if (cnv) {
+                    auto repl = std::make_shared<ov::snippets::op::ConvertTruncation>(
+                        cnv->get_input_source_output(0), cnv->get_destination_type());
+                    repl->set_friendly_name(cnv->get_friendly_name());
+                    ov::copy_runtime_info(cnv, repl);
+                    ov::replace_node(cnv, repl);
+                    ++cnt_replaced;
+                }
+            } else if (ov::is_type<ov::op::v0::Constant>(n)) {
+                ++cnt_const;
+                const_names.push_back(n->get_friendly_name());
+                auto c = ov::as_type_ptr<ov::op::v0::Constant>(n);
+                if (c && ov::shape_size(c->get_output_shape(0)) == 1) {
+                    auto scalar = std::make_shared<ov::snippets::op::Scalar>(ov::op::v0::Constant(*c, ov::Shape{1}));
+                    scalar->set_friendly_name(c->get_friendly_name());
+                    ov::copy_runtime_info(c, scalar);
+                    ov::replace_node(c, scalar);
+                    ++cnt_const_scalar_repl;
+                }
+            }
+        }
+        if (cnt_plain > 0) {
+            std::cerr << "[Subgraph::data_flow_transformations] Plain Convert in body before passes: " << cnt_plain
+                      << ", replaced: " << cnt_replaced << std::endl;
+            std::cerr << "  names: ";
+            for (size_t i = 0; i < plain_names.size(); ++i) {
+                if (i) std::cerr << ", ";
+                std::cerr << plain_names[i];
+            }
+            std::cerr << std::endl;
+        }
+        if (cnt_const > 0) {
+            std::cerr << "[Subgraph::data_flow_transformations] Constant nodes in body before passes: " << cnt_const
+                      << ", scalar replaced: " << cnt_const_scalar_repl << std::endl;
+            std::cerr << "  names: ";
+            for (size_t i = 0; i < const_names.size(); ++i) {
+                if (i) std::cerr << ", ";
+                std::cerr << const_names[i];
+            }
+            std::cerr << std::endl;
+        }
+        // Extract any remaining non-scalar Constants from the body into Subgraph inputs
+        {
+            ov::snippets::pass::CommonOptimizations::SubgraphManager subgraph_manager;
+            subgraph_manager.register_pass<ov::snippets::pass::ExtractConstants>();
+            auto self = std::static_pointer_cast<const ov::snippets::op::Subgraph>(this->shared_from_this());
+            auto self_nc = std::const_pointer_cast<ov::snippets::op::Subgraph>(self);
+            (void)subgraph_manager.run_passes(self_nc);
+        }
+    }
     manager.run_passes(body_ptr());
+
+    // Final safety: extract any remaining Constants from the body into Subgraph inputs
+    {
+        auto body = body_ptr();
+        ov::ParameterVector new_parameters;
+        ov::OutputVector new_external_inputs = this->input_values();
+        bool changed = false;
+        for (auto& op : body->get_ops()) {
+            if (auto constant = ov::as_type_ptr<ov::op::v0::Constant>(op)) {
+                // Keep scalars as snippets::op::Scalar (handled earlier). Here extract any remaining Constants.
+                if (ov::shape_size(constant->get_shape()) == 1UL) {
+                    continue;
+                }
+                // Replace Constant with Parameter and add the Constant as an external input to Subgraph
+                auto parameter =
+                    std::make_shared<ov::op::v0::Parameter>(constant->get_element_type(), constant->get_shape());
+                ov::replace_output_update_name(constant->output(0), parameter->output(0));
+                new_external_inputs.emplace_back(constant);
+                new_parameters.push_back(parameter);
+                changed = true;
+            }
+        }
+        if (changed) {
+            body->add_parameters(new_parameters);
+            body->validate_nodes_and_infer_types();
+            auto self = std::static_pointer_cast<const ov::snippets::op::Subgraph>(this->shared_from_this());
+            auto self_nc = std::const_pointer_cast<ov::snippets::op::Subgraph>(self);
+            self_nc->set_arguments(new_external_inputs);
+            // Prune unreachable nodes by recreating the body from its current Parameters and Results
+            auto pruned = body_ptr()->clone();
+            self_nc->body_ptr() = pruned;
+        }
+    }
 }
 
 void Subgraph::control_flow_transformations(
@@ -501,6 +606,41 @@ void Subgraph::control_flow_transformations(
                       ov::pass::itt::domains::SnippetsTransform,
                       "Snippets::op::control_flow_transformations",
                       "::convert_body_to_linear_ir")
+
+    // Ensure no raw Constant nodes remain before converting body to LinearIR
+    {
+        auto body = body_ptr();
+        ov::ParameterVector new_parameters;
+        ov::OutputVector new_external_inputs = this->input_values();
+        bool changed = false;
+        for (auto& op : body->get_ops()) {
+            if (auto c = ov::as_type_ptr<ov::op::v0::Constant>(op)) {
+                const auto sz = ov::shape_size(c->get_shape());
+                if (sz == 1UL) {
+                    auto scalar = std::make_shared<ov::snippets::op::Scalar>(ov::op::v0::Constant(*c, ov::Shape{1}));
+                    scalar->set_friendly_name(c->get_friendly_name());
+                    ov::copy_runtime_info(c, scalar);
+                    ov::replace_node(c, scalar);
+                    changed = true;
+                } else {
+                    auto parameter = std::make_shared<ov::op::v0::Parameter>(c->get_element_type(), c->get_shape());
+                    ov::replace_output_update_name(c->output(0), parameter->output(0));
+                    new_external_inputs.emplace_back(c);
+                    new_parameters.push_back(parameter);
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            body->add_parameters(new_parameters);
+            body->validate_nodes_and_infer_types();
+            auto self = std::static_pointer_cast<const ov::snippets::op::Subgraph>(this->shared_from_this());
+            auto self_nc = std::const_pointer_cast<ov::snippets::op::Subgraph>(self);
+            self_nc->set_arguments(new_external_inputs);
+            auto pruned = body_ptr()->clone();
+            self_nc->body_ptr() = pruned;
+        }
+    }
 
     convert_body_to_linear_ir(min_parallel_work_amount, min_kernel_work_amount, shape_infer_factory);
     OPENVINO_ASSERT(m_linear_ir, "LinearIR has not been inited for control flow transformations!");

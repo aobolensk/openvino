@@ -38,6 +38,7 @@
 #include "openvino/op/ceiling.hpp"
 #include "openvino/op/clamp.hpp"
 #include "openvino/op/divide.hpp"
+#include "openvino/op/convert.hpp"
 #include "openvino/op/elu.hpp"
 #include "openvino/op/equal.hpp"
 #include "openvino/op/erf.hpp"
@@ -245,6 +246,7 @@ CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::aarch64::cpu_isa_t host_isa,
         CREATE_CPU_EMITTER(jit_convert_truncation_emitter);
     jitters[snippets::op::ConvertSaturation::get_type_info_static()] =
         CREATE_CPU_EMITTER(jit_convert_saturation_emitter);
+
 
     // memory access
     jitters[snippets::op::Load::get_type_info_static()] = CREATE_SNIPPETS_EMITTER(jit_load_memory_emitter);
