@@ -18,6 +18,7 @@
 #include "utils/general_utils.h"
 
 #if defined(OPENVINO_ARCH_RISCV64)
+#    include "nodes/executors/debug_messages.hpp"
 #    include "nodes/executors/ref/convolution.hpp"
 #else
 #    include "memory_format_filter.hpp"
