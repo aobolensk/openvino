@@ -32,6 +32,8 @@
 #    include "nodes/executors/executor.hpp"
 #endif
 
+#include "nodes/executors/ref/convolution.hpp"
+
 namespace ov::intel_cpu {
 
 using namespace ov::element;
@@ -242,6 +244,39 @@ const std::vector<ExecutorImplementation<ConvAttrs>>& getImplementations() {
             CreateOptimalConfigDefault{{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc}},
             AcceptsAnyShape<ConvAttrs>,
             CreateDnnlDefault<DnnlConvolutionPrimitive, ConvAttrs>{}
+            )
+        // Reference fallbacks (always considered last by the factory logic).
+        OV_CPU_INSTANCE_COMMON(
+            "convolution_ref_ncsp", ExecutorType::Reference, OperationType::Convolution,
+            // supports
+            [](const ConvConfig& config, const MemoryFormatFilter& memoryFormatFilter) -> bool {
+                VERIFY(!isQuantized(config), UNSUPPORTED_SRC_PRECISIONS);
+                VERIFY(config.attrs.postOps.empty(), UNSUPPORTED_POST_OPS);
+                return MatchesMemoryFormatFilter(config.descs,
+                                                 LayoutConfig{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp},
+                                                 memoryFormatFilter,
+                                                 dnnlConvolutionMappingNotation);
+            },
+            // createOptimalConfig
+            CreateOptimalConfigDefault{{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp}},
+            AcceptsAnyShape<ConvAttrs>,
+            CreateDefault<RefConvolutionExecutor, ConvAttrs>{}
+            )
+        OV_CPU_INSTANCE_COMMON(
+            "convolution_ref_nspc", ExecutorType::Reference, OperationType::Convolution,
+            // supports
+            [](const ConvConfig& config, const MemoryFormatFilter& memoryFormatFilter) -> bool {
+                VERIFY(!isQuantized(config), UNSUPPORTED_SRC_PRECISIONS);
+                VERIFY(config.attrs.postOps.empty(), UNSUPPORTED_POST_OPS);
+                return MatchesMemoryFormatFilter(config.descs,
+                                                 LayoutConfig{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc},
+                                                 memoryFormatFilter,
+                                                 dnnlConvolutionMappingNotation);
+            },
+            // createOptimalConfig
+            CreateOptimalConfigDefault{{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc}},
+            AcceptsAnyShape<ConvAttrs>,
+            CreateDefault<RefConvolutionExecutor, ConvAttrs>{}
             )
     };
 
