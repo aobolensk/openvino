@@ -21,6 +21,13 @@ namespace ov::intel_cpu {
 
 RefConvolutionExecutor::~RefConvolutionExecutor() = default;
 
+RefConvolutionExecutor::RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
+    : m_attrs(std::move(attrs)) {}
+
+bool RefConvolutionExecutor::isNspc(const MemoryDescPtr& desc) {
+    return desc && desc->hasLayoutType(LayoutType::nspc);
+}
+
 bool RefConvolutionExecutor::update(const MemoryArgs& /*memory*/) {
     return true;
 }

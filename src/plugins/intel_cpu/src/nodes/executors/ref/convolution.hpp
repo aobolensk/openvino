@@ -21,8 +21,7 @@ namespace ov::intel_cpu {
 
 class RefConvolutionExecutor : public Executor {
 public:
-    RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
-        : m_attrs(std::move(attrs)) {}
+    RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& memory, ExecutorContext::CPtr context);
 
     virtual ~RefConvolutionExecutor();
 
@@ -35,9 +34,7 @@ public:
 private:
     ConvAttrs m_attrs;
 
-    static bool isNspc(const MemoryDescPtr& desc) {
-        return desc && desc->hasLayoutType(LayoutType::nspc);
-    }
+    static bool isNspc(const MemoryDescPtr& desc);
 };
 
 }  // namespace ov::intel_cpu
