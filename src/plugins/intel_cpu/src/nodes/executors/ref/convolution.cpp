@@ -21,9 +21,6 @@ namespace ov::intel_cpu {
 
 RefConvolutionExecutor::~RefConvolutionExecutor() = default;
 
-RefConvolutionExecutor::RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
-    : m_attrs(std::move(attrs)) {}
-
 bool RefConvolutionExecutor::isNspc(const MemoryDescPtr& desc) {
     return desc && desc->hasLayoutType(LayoutType::nspc);
 }
@@ -37,6 +34,12 @@ impl_desc_type RefConvolutionExecutor::implType() const {
 }
 
 void RefConvolutionExecutor::anchor() {}
+
+ExecutorPtr create_ref_convolution_executor(const ConvAttrs& attrs,
+                                            const MemoryArgs& memory,
+                                            const ExecutorContext::CPtr& context) {
+    return std::make_shared<RefConvolutionExecutor>(attrs, memory, context);
+}
 
 static inline int64_t div_floor(int64_t a, int64_t b) {
     return (a - (a < 0) * (b - 1)) / b;

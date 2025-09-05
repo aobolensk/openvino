@@ -260,7 +260,9 @@ const std::vector<ExecutorImplementation<ConvAttrs>>& getImplementations() {
             // createOptimalConfig
             CreateOptimalConfigDefault{{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp}},
             AcceptsAnyShape<ConvAttrs>,
-            CreateDefault<RefConvolutionExecutor, ConvAttrs>{}
+            [](const ConvAttrs& attrs, const MemoryArgs& memory, const ExecutorContext::CPtr& context) {
+                return create_ref_convolution_executor(attrs, memory, context);
+            }
             )
     };
 

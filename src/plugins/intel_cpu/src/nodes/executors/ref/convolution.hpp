@@ -21,7 +21,8 @@ namespace ov::intel_cpu {
 
 class RefConvolutionExecutor : public Executor {
 public:
-    RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& memory, ExecutorContext::CPtr context);
+    RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
+        : m_attrs(std::move(attrs)) {}
 
     virtual ~RefConvolutionExecutor();
 
@@ -40,6 +41,11 @@ private:
 
     static bool isNspc(const MemoryDescPtr& desc);
 };
+
+// Factory function to avoid cross-TU ctor dependency
+ExecutorPtr create_ref_convolution_executor(const ConvAttrs& attrs,
+                                            const MemoryArgs& memory,
+                                            const ExecutorContext::CPtr& context);
 
 }  // namespace ov::intel_cpu
 
