@@ -86,9 +86,9 @@ void RefConvolutionExecutor::execute(const MemoryArgs& memory) {
 
     const float* src = memory.at(ARG_SRC)->getDataAs<const float>();
     const float* wei = memory.at(ARG_WEI)->getDataAs<const float>();
-    const float* bia = nullptr;
+    const float* bias = nullptr;
     if (m_attrs.withBias && memory.at(ARG_BIAS) && !memory.at(ARG_BIAS)->getDescPtr()->empty()) {
-        bia = memory.at(ARG_BIAS)->getDataAs<const float>();
+        bias = memory.at(ARG_BIAS)->getDataAs<const float>();
     }
     float* dst = memory.at(ARG_DST)->getDataAs<float>();
 
@@ -116,8 +116,6 @@ void RefConvolutionExecutor::execute(const MemoryArgs& memory) {
     ov::CoordinateDiff pads_end(m_attrs.paddingR.begin(), m_attrs.paddingR.end());
 
     // Prepare source and destination buffers in NCSP order expected by ov::reference
-    const size_t in_spatial_size =
-        std::accumulate(in_spatial.begin(), in_spatial.end(), size_t{1}, std::multiplies<size_t>());
     const size_t out_spatial_size =
         std::accumulate(out_spatial.begin(), out_spatial.end(), size_t{1}, std::multiplies<size_t>());
     const float* src_for_ref = src;
@@ -149,13 +147,13 @@ void RefConvolutionExecutor::execute(const MemoryArgs& memory) {
     }
 
     // Apply bias if present (on NCSP pointer)
-    if (bia) {
+    if (bias) {
         float* out_ncsp = dst_for_ref;
         size_t idx = 0;
         for (size_t n = 0; n < N; ++n) {
             for (size_t oc = 0; oc < OC; ++oc) {
                 for (size_t s = 0; s < out_spatial_size; ++s, ++idx) {
-                    out_ncsp[idx] += bia[oc];
+                    out_ncsp[idx] += bias[oc];
                 }
             }
         }
