@@ -24,15 +24,13 @@ public:
     RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
         : m_attrs(std::move(attrs)) {}
 
-    bool update(const MemoryArgs& /*memory*/) override {
-        return true;
-    }
+    virtual ~RefConvolutionExecutor();
+
+    bool update(const MemoryArgs& memory) override;
 
     void execute(const MemoryArgs& memory) override;
 
-    [[nodiscard]] impl_desc_type implType() const override {
-        return impl_desc_type::ref;
-    }
+    [[nodiscard]] impl_desc_type implType() const override;
 
 private:
     ConvAttrs m_attrs;

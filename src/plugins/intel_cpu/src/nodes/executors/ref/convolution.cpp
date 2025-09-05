@@ -19,6 +19,16 @@
 
 namespace ov::intel_cpu {
 
+RefConvolutionExecutor::~RefConvolutionExecutor() = default;
+
+bool RefConvolutionExecutor::update(const MemoryArgs& /*memory*/) {
+    return true;
+}
+
+impl_desc_type RefConvolutionExecutor::implType() const {
+    return impl_desc_type::ref;
+}
+
 static inline int64_t div_floor(int64_t a, int64_t b) {
     return (a - (a < 0) * (b - 1)) / b;
 }
