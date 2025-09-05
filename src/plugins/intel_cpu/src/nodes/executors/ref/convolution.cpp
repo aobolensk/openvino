@@ -115,6 +115,46 @@ void RefConvolutionExecutor::execute(const MemoryArgs& memory) {
     ov::CoordinateDiff pads_begin(m_attrs.paddingL.begin(), m_attrs.paddingL.end());
     ov::CoordinateDiff pads_end(m_attrs.paddingR.begin(), m_attrs.paddingR.end());
 
+    // Handle auto padding (SAME_{UPPER,LOWER}) by deriving explicit pads to match dst spatial dims
+    if (m_attrs.autoPadding != AutoPaddingType::None) {
+        const size_t spatial_rank = in_spatial.size();
+        // Ensure pads arrays have correct rank
+        pads_begin.resize(spatial_rank, 0);
+        pads_end.resize(spatial_rank, 0);
+
+        // Determine kernel (filter) spatial sizes
+        // For Convolution: f_shape = [OC, IC, ...spatial]
+        // For GroupConvolution: f_shape = [G, OC, IC, ...spatial]
+        const size_t filter_spatial_offset = m_attrs.isGrouped ? 3 : 2;
+        OPENVINO_ASSERT(f_shape.size() >= filter_spatial_offset + spatial_rank,
+                        "Unexpected filter shape rank for convolution");
+
+        for (size_t i = 0; i < spatial_rank; ++i) {
+            const int64_t in_dim = static_cast<int64_t>(in_spatial[i]);
+            const int64_t stride = static_cast<int64_t>(strides[i]);
+            const int64_t dilation = static_cast<int64_t>(dilations[i]);
+            const int64_t kernel = static_cast<int64_t>(f_shape[filter_spatial_offset + i]);
+            const int64_t dilated = (kernel - 1) * dilation + 1;
+            const int64_t out_dim = static_cast<int64_t>(out_spatial[i]);
+
+            // total padding required to achieve given out_dim
+            const int64_t pad_total = std::max<int64_t>(0, (out_dim - 1) * stride + dilated - in_dim);
+
+            int64_t pad_l = 0;
+            int64_t pad_r = 0;
+            if (m_attrs.autoPadding == AutoPaddingType::SAME_UPPER) {
+                pad_l = pad_total / 2;               // floor
+                pad_r = pad_total - pad_l;           // rest to the right
+            } else { // SAME_LOWER
+                pad_l = (pad_total + 1) / 2;         // ceil
+                pad_r = pad_total - pad_l;
+            }
+
+            pads_begin[i] = static_cast<int64_t>(pad_l);
+            pads_end[i] = static_cast<int64_t>(pad_r);
+        }
+    }
+
     // Prepare source and destination buffers in NCSP order expected by ov::reference
     const size_t out_spatial_size =
         std::accumulate(out_spatial.begin(), out_spatial.end(), size_t{1}, std::multiplies<size_t>());
