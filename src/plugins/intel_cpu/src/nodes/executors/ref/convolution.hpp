@@ -31,6 +31,10 @@ public:
 
     [[nodiscard]] impl_desc_type implType() const override;
 
+protected:
+    // VTable anchor
+    virtual void anchor();
+
 private:
     ConvAttrs m_attrs;
 
