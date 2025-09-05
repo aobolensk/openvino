@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#if defined(OPENVINO_ARCH_RISCV64)
+#include "nodes/executors/ref/convolution.hpp"
 
-#    include "nodes/executors/ref/convolution.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <numeric>
+#include <vector>
 
-#    include <algorithm>
-#    include <cstddef>
-#    include <cstdint>
-#    include <numeric>
-#    include <vector>
-
-#    include "openvino/core/except.hpp"
-#    include "openvino/core/type/element_type.hpp"
-#    include "openvino/reference/convolution.hpp"
-#    include "openvino/reference/group_convolution.hpp"
+#include "openvino/core/except.hpp"
+#include "openvino/core/type/element_type.hpp"
+#include "openvino/reference/convolution.hpp"
+#include "openvino/reference/group_convolution.hpp"
 
 namespace ov::intel_cpu {
 
@@ -34,12 +32,6 @@ impl_desc_type RefConvolutionExecutor::implType() const {
 }
 
 void RefConvolutionExecutor::anchor() {}
-
-ExecutorPtr create_ref_convolution_executor(const ConvAttrs& attrs,
-                                            const MemoryArgs& memory,
-                                            const ExecutorContext::CPtr& context) {
-    return std::make_shared<RefConvolutionExecutor>(attrs, memory, context);
-}
 
 static inline int64_t div_floor(int64_t a, int64_t b) {
     return (a - (a < 0) * (b - 1)) / b;
@@ -173,5 +165,3 @@ void RefConvolutionExecutor::execute(const MemoryArgs& memory) {
 }
 
 }  // namespace ov::intel_cpu
-
-#endif  // OPENVINO_ARCH_RISCV64
