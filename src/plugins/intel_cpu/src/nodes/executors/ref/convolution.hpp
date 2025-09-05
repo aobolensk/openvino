@@ -4,16 +4,18 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <vector>
+#if defined(OPENVINO_ARCH_RISCV64)
 
-#include "cpu_memory.h"
-#include "memory_desc/cpu_memory_desc.h"
-#include "nodes/executors/convolution_config.hpp"
-#include "nodes/executors/executor.hpp"
-#include "nodes/executors/memory_arguments.hpp"
+#    include <cstddef>
+#    include <cstdint>
+#    include <memory>
+#    include <vector>
+
+#    include "cpu_memory.h"
+#    include "memory_desc/cpu_memory_desc.h"
+#    include "nodes/executors/convolution_config.hpp"
+#    include "nodes/executors/executor.hpp"
+#    include "nodes/executors/memory_arguments.hpp"
 
 namespace ov::intel_cpu {
 
@@ -22,11 +24,15 @@ public:
     RefConvolutionExecutor(ConvAttrs attrs, const MemoryArgs& /*memory*/, ExecutorContext::CPtr /*context*/)
         : m_attrs(std::move(attrs)) {}
 
-    bool update(const MemoryArgs& /*memory*/) override { return true; }
+    bool update(const MemoryArgs& /*memory*/) override {
+        return true;
+    }
 
     void execute(const MemoryArgs& memory) override;
 
-    [[nodiscard]] impl_desc_type implType() const override { return impl_desc_type::ref; }
+    [[nodiscard]] impl_desc_type implType() const override {
+        return impl_desc_type::ref;
+    }
 
 private:
     ConvAttrs m_attrs;
@@ -38,3 +44,4 @@ private:
 
 }  // namespace ov::intel_cpu
 
+#endif  // OPENVINO_ARCH_RISCV64
