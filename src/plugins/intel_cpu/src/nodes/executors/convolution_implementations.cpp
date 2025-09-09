@@ -17,12 +17,11 @@
 #include "utils/arch_macros.h"
 #include "utils/general_utils.h"
 
+#include "memory_format_filter.hpp"
+#include "nodes/executors/dnnl/dnnl_convolution_primitive.hpp"
+
 #if defined(OPENVINO_ARCH_RISCV64)
 #    include "nodes/executors/debug_messages.hpp"
-#    include "nodes/executors/ref/convolution.hpp"
-#else
-#    include "memory_format_filter.hpp"
-#    include "nodes/executors/dnnl/dnnl_convolution_primitive.hpp"
 #endif
 
 #if defined(OPENVINO_ARCH_X86) || defined(OPENVINO_ARCH_X86_64)
@@ -246,9 +245,9 @@ const std::vector<ExecutorImplementation<ConvAttrs>>& getImplementations() {
             AcceptsAnyShape<ConvAttrs>,
             CreateDnnlDefault<DnnlConvolutionPrimitive, ConvAttrs>{}
             )
-        // Reference fallbacks (always considered last by the factory logic).
+        // oneDNN reference fallback for RISC-V (always considered last by the factory logic).
         OV_CPU_INSTANCE_RISCV64(
-            "convolution_ref_ncsp", ExecutorType::Reference, OperationType::Convolution,
+            "convolution_dnnl_ref_ncsp", ExecutorType::Dnnl, OperationType::Convolution,
             // supports
             [](const ConvConfig& config, const MemoryFormatFilter& memoryFormatFilter) -> bool {
                 VERIFY(!isQuantized(config), UNSUPPORTED_SRC_PRECISIONS);
@@ -261,7 +260,7 @@ const std::vector<ExecutorImplementation<ConvAttrs>>& getImplementations() {
             // createOptimalConfig
             CreateOptimalConfigDefault{{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp}},
             AcceptsAnyShape<ConvAttrs>,
-            CreateDefault<RefConvolutionExecutor, ConvAttrs>{}
+            CreateDnnlDefault<DnnlConvolutionPrimitive, ConvAttrs>{}
             )
     };
 
