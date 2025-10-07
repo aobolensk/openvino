@@ -12,7 +12,6 @@ class CommonOptimizations : public ov::pass::MatcherPass {
     class SubgraphPass;
     class SubgraphManager;
     friend class ExtractConstants;
-    friend class ExtractUnsupportedTransposes;
     friend class SplitDimensionM;
 
 public:

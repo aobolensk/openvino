@@ -9,6 +9,7 @@
 #include <climits>
 #include <cstdint>
 #include <memory>
+#include <numeric>
 #include <ostream>
 #include <set>
 #include <vector>
@@ -90,6 +91,17 @@
 namespace ov::snippets::pass {
 
 namespace {
+std::vector<int32_t> get_rank_equivalent_order(const std::vector<int32_t>& base_order, size_t rank) {
+    OPENVINO_ASSERT(rank >= base_order.size(), "Incorrect order rank for Transpose tokenization");
+    std::vector<int32_t> order(rank);
+    std::iota(order.begin(), order.end(), 0);
+    const auto diff = static_cast<int32_t>(rank - base_order.size());
+    for (size_t i = 0; i < base_order.size(); ++i) {
+        order[diff + i] = base_order[i] + diff;
+    }
+    return order;
+}
+
 auto is_supported_op(const std::shared_ptr<const Node>& n) -> bool {
     OV_ITT_SCOPED_TASK(ov::pass::itt::domains::SnippetsTransform, "Snippets::is_supported_op")
     auto is_supported_matmul = [](const std::shared_ptr<const Node>& n) -> bool {
@@ -127,8 +139,18 @@ auto is_supported_op(const std::shared_ptr<const Node>& n) -> bool {
             const auto& order = as_type_ptr<const opset1::Constant>(n->get_input_node_shared_ptr(1));
             if (order) {
                 const auto order_value = order->cast_vector<int>();
-                return (decomposition_case && TransposeDecomposition::is_supported_transpose_order(order_value)) ||
-                       (is_brgemm_case && FuseTransposeBrgemm::is_supported_transpose_order(order_value));
+                if (order_value.size() <= 2) {
+                    return false;
+                }
+                const auto rank = order_value.size();
+                static const std::vector<int32_t> fusion_base = {1, 0, 2};
+                static const std::vector<int32_t> decomposed_base = {1, 2, 0};
+                const auto fusion_order = get_rank_equivalent_order(fusion_base, rank);
+                const auto decomposed_order = get_rank_equivalent_order(decomposed_base, rank);
+                if (is_brgemm_case && order_value == fusion_order) {
+                    return true;
+                }
+                return decomposition_case && order_value == decomposed_order;
             }
         }
         return false;
