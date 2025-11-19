@@ -84,7 +84,6 @@
 #include "snippets/pass/canonicalization.hpp"
 #include "snippets/pass/convert_constants.hpp"
 #include "snippets/pass/convert_power_to_powerstatic.hpp"
-#include "snippets/pass/fuse_transpose_brgemm.hpp"
 #include "snippets/pass/gn_decomposition.hpp"
 #include "snippets/pass/manager.hpp"
 #include "snippets/pass/matmul_to_brgemm.hpp"
@@ -101,6 +100,10 @@
 #include "snippets/utils/linear_ir_pass_dumper.hpp"
 #include "snippets/utils/utils.hpp"
 #include "transformations/common_optimizations/nop_elimination.hpp"
+
+#ifdef OPENVINO_ARCH_X86_64
+#    include "snippets/pass/fuse_transpose_brgemm.hpp"
+#endif
 
 using namespace ov::op::util;
 
@@ -470,7 +473,9 @@ void Subgraph::data_flow_transformations(
 
     if (config.m_has_domain_sensitive_ops) {
         manager.register_pass<snippets::pass::MatMulToBrgemm>();
+#ifdef OPENVINO_ARCH_X86_64
         manager.register_pass<snippets::pass::FuseTransposeBrgemm>();
+#endif
         manager.register_pass<snippets::pass::TransposeDecomposition>();
         manager.register_pass<snippets::pass::SoftmaxDecomposition>();
         manager.register_pass<snippets::pass::GNDecomposition>();

@@ -1252,6 +1252,9 @@ void Transformations::MainSnippets() {
     // To avoid situations when Transpose is not alone node between MatMul and Result,
     // Plugin disables Transpose tokenization on output
     bool mha_token_enable_transpose_on_output = any_of(config.inferencePrecision, element::f32, element::dynamic);
+#if defined(OPENVINO_ARCH_ARM64)
+    mha_token_enable_transpose_on_output = false;
+#endif
     // Runtime caching should be enabled in case of dynamic Subgraphs in CPU Plugin: to reduce overheads of
     // ShapeInference and CodeGeneration If runtime cache capacity is zero, it means that rtCache won't be used and we
     // shouldn't tokenize dynamic Subgraphs - it will lead to performance degradations

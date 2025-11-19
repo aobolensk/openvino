@@ -14,7 +14,7 @@ namespace {
 
 // Transpose is moved outside of Subgraph on ARM64
 #if defined(OPENVINO_ARCH_ARM64)
-static constexpr size_t expected_nodes_mha_mul_add = 4;
+static constexpr size_t expected_nodes_mha_mul_add = 5;
 #else
 static constexpr size_t expected_nodes_mha_mul_add = 2;
 #endif

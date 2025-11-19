@@ -23,7 +23,8 @@ const auto& inputShapeSelect = SNIPPETS_TESTS_STATIC_SHAPES(
 
 // Transpose is moved outside of Subgraph on ARM64
 #if defined(OPENVINO_ARCH_ARM64)
-static constexpr size_t expected_nodes_mha_select = 5;
+// Output Transpose stays outside Subgraph on ARM: +1 node
+static constexpr size_t expected_nodes_mha_select = 6;
 #else
 static constexpr size_t expected_nodes_mha_select = 3;
 #endif

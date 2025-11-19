@@ -86,7 +86,7 @@ std::vector<std::vector<InputShape>> transposedShape_2D(bool with_dynamic = true
 
 // Transpose is moved outside of Subgraph on ARM64
 #if defined(OPENVINO_ARCH_ARM64)
-static constexpr size_t expected_nodes_mha_4d_f32 = 4;
+static constexpr size_t expected_nodes_mha_4d_f32 = 5;
 #else
 static constexpr size_t expected_nodes_mha_4d_f32 = 2;
 #endif
