@@ -221,6 +221,16 @@ struct ShlFCParams : public ShlParams<csinn_fc_params*> {
 };
 
 template <>
+struct ShlStructureTraits<csinn_conv2d_params*> {
+    static void destructor(csinn_conv2d_params* p) {
+        csinn_free_params(p);
+    }
+};
+struct ShlConvParams : public ShlParams<csinn_conv2d_params*> {
+    using ShlParams<csinn_conv2d_params*>::ShlParams;
+};
+
+template <>
 struct ShlStructureTraits<csinn_diso_params*> {
     static void destructor(csinn_diso_params* p) {
         csinn_free_params(p);

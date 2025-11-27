@@ -33,6 +33,10 @@
 #    include "nodes/executors/acl/acl_conv.hpp"
 #endif
 
+#if defined(OV_CPU_WITH_SHL)
+#    include "nodes/executors/shl/shl_convolution.hpp"
+#endif
+
 namespace ov::intel_cpu {
 
 using namespace ov::element;
@@ -270,6 +274,40 @@ const std::vector<ExecutorImplementation<ConvAttrs>>& getImplementations() {
             CreateOptimalConfigDefault{{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc}},
             AcceptsAnyShape<ConvAttrs>,
             CreateDnnlDefault<DnnlConvolutionPrimitive, ConvAttrs>{}
+            )
+        OV_CPU_INSTANCE_SHL(
+            "convolution_shl_ncsp", ExecutorType::Shl, OperationType::Convolution,
+            // supports
+            [](const ConvConfig& config, const MemoryFormatFilter& memoryFormatFilter) -> bool {
+                VERIFY(MatchesMemoryFormatFilter(config.descs,
+                                                 LayoutConfig{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp},
+                                                 memoryFormatFilter,
+                                                 dnnlConvolutionMappingNotation),
+                       MEMORY_FORMAT_MISMATCH);
+                VERIFY(ShlConvExecutor::supports(config), UNSUPPORTED_BY_EXECUTOR);
+
+                return true;
+            },
+            CreateOptimalConfigDefault{{LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp, LayoutType::ncsp}},
+            AcceptsAnyShape<ConvAttrs>,
+            CreateDefault<ShlConvExecutor, ConvAttrs>{}
+            )
+        OV_CPU_INSTANCE_SHL(
+            "convolution_shl_nspc", ExecutorType::Shl, OperationType::Convolution,
+            // supports
+            [](const ConvConfig& config, const MemoryFormatFilter& memoryFormatFilter) -> bool {
+                VERIFY(MatchesMemoryFormatFilter(config.descs,
+                                                 LayoutConfig{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc},
+                                                 memoryFormatFilter,
+                                                 dnnlConvolutionMappingNotation),
+                       MEMORY_FORMAT_MISMATCH);
+                VERIFY(ShlConvExecutor::supports(config), UNSUPPORTED_BY_EXECUTOR);
+
+                return true;
+            },
+            CreateOptimalConfigDefault{{LayoutType::nspc, LayoutType::ncsp, LayoutType::nspc, LayoutType::nspc}},
+            AcceptsAnyShape<ConvAttrs>,
+            CreateDefault<ShlConvExecutor, ConvAttrs>{}
             )
         OV_CPU_INSTANCE_RISCV64(
             "convolution_dnnl_ref_ncsp", ExecutorType::Dnnl, OperationType::Convolution,
