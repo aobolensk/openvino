@@ -55,13 +55,8 @@ public:
     static std::set<std::vector<element::Type>> get_supported_precisions(
         const std::shared_ptr<ov::Node>& node = nullptr);
 
-    // TODO: RV64 supports vector multiplier.
-    // However, currently not all JIT emitter support LMUL > 1:
-    //   - if aux_vec registers are needed - preamble/postamble support only m1.
-    //     These JIT emitters should known exact value of LMUL to preserve vec regs with correct idxs.
-    //   - etc
     virtual bool is_lmul_supported() const {
-        return aux_vecs_count() == 0;
+        return host_isa_ == cpu_isa_t::gv && aux_vecs_count() == 0;
     }
 
 protected:

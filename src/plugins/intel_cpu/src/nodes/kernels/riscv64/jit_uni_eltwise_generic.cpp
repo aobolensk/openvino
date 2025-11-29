@@ -364,15 +364,18 @@ void jit_uni_eltwise_generic<isa>::store_vector(const Xbyak_riscv::Reg& gpr_work
 
 template <ov::intel_cpu::riscv64::cpu_isa_t isa>
 Xbyak_riscv::LMUL jit_uni_eltwise_generic<isa>::compute_exec_lmul(const ov::element::Type& exec_prc) const {
-    // TODO: Support any LMUL values
-    if (!eltwise_emitter->is_lmul_supported()) {
+    const bool all_emitters_support_lmul =
+        eltwise_emitter->is_lmul_supported() &&
+        std::all_of(post_op_emitters.begin(),
+                    post_op_emitters.end(),
+                    [](const std::shared_ptr<jit_emitter>& emitter) {
+                        return emitter->is_lmul_supported();
+                    });
+
+    if (!all_emitters_support_lmul) {
         return LMUL::m1;
     }
-    for (const auto& post_op_emitter : post_op_emitters) {
-        if (!post_op_emitter->is_lmul_supported()) {
-            return LMUL::m1;
-        }
-    }
+
     return get_max_lmul(exec_prc);
 }
 

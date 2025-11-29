@@ -2708,14 +2708,24 @@ void jit_power_static_emitter::emit_isa(const std::vector<size_t>& in_vec_idxs,
         h->addi(sp, sp, -sp_size);
         h->vse32_v(dst, sp);
 
-        // TODO: Support any LMUL here (via vl from csr + labels)
-        for (size_t i = 0; i < get_vec_length(); i += sizeof(float)) {
-            h->flw(fa0, sp, i);
+        auto vl_reg = Reg(aux_gpr_idxs[1]);
+        for (size_t offset = 0, elem = 0; offset < get_vec_length(); offset += sizeof(float), ++elem) {
+            Xbyak_riscv::Label skip;
+
+            h->csrr(vl_reg, CSR::vl);
+            if (elem != 0) {
+                h->addi(vl_reg, vl_reg, -static_cast<int>(elem));
+            }
+            h->blez(vl_reg, skip);
+
+            h->flw(fa0, sp, offset);
             load_table_val("power", fa1);
 
             h->jalr(ra, func_reg);
 
-            h->fsw(fa0, sp, i);
+            h->fsw(fa0, sp, offset);
+
+            h->L(skip);
         }
 
         h->vle32_v(dst, sp);

@@ -333,7 +333,6 @@ void jit_emitter::store_context(const std::vector<size_t>& gpr_regs,
 
     // Vec regs
     {
-        // TODO: support lmul
         const int step = -rnd_up(get_vec_length(), sp_aligment);
         for (const auto& vec_idx : vec_regs) {
             h->addi(sp, sp, step);
@@ -347,7 +346,6 @@ void jit_emitter::restore_context(const std::vector<size_t>& gpr_regs,
                                   const std::vector<size_t>& vec_regs) const {
     // Vec regs
     {
-        // TODO: support lmul
         const int step = rnd_up(get_vec_length(), sp_aligment);
         for (const auto& vec_idx : vec_regs) {
             h->addi(sp, sp, step);

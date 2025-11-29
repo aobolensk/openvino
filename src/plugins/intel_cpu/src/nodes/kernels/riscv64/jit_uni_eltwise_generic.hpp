@@ -190,7 +190,6 @@ private:
     Xbyak_riscv::LMUL current_lmul = Xbyak_riscv::LMUL::m1;
     Xbyak_riscv::SEW current_sew = Xbyak_riscv::SEW::e32;
 
-    // TODO: Support any LMUL values
     Xbyak_riscv::LMUL exec_lmul = Xbyak_riscv::LMUL::m1;
     Xbyak_riscv::SEW exec_sew = Xbyak_riscv::SEW::e32;
 
