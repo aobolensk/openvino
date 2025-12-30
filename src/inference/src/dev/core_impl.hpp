@@ -13,6 +13,7 @@
 #include "openvino/core/version.hpp"
 #include "openvino/runtime/common.hpp"
 #include "openvino/runtime/icompiled_model.hpp"
+#include "openvino/runtime/icore.hpp"
 #include "openvino/runtime/threading/executor_manager.hpp"
 
 namespace ov {

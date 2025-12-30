@@ -13,6 +13,7 @@
 #include "openvino/core/except.hpp"
 #include "openvino/proxy/properties.hpp"
 #include "openvino/runtime/device_id_parser.hpp"
+#include "openvino/runtime/icore.hpp"
 #include "openvino/runtime/iinfer_request.hpp"
 #include "openvino/runtime/internal_properties.hpp"
 #include "openvino/runtime/iremote_context.hpp"

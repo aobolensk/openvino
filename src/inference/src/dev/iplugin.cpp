@@ -9,6 +9,7 @@
 #include "openvino/op/util/op_types.hpp"
 #include "openvino/op/util/shape_of_base.hpp"
 #include "openvino/pass/manager.hpp"
+#include "openvino/runtime/icore.hpp"
 #include "transformations/common_optimizations/fused_names_cleanup.hpp"
 #include "transformations/rt_info/fused_names_attribute.hpp"
 

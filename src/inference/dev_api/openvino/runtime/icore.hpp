@@ -12,7 +12,6 @@
 #include <memory>
 
 #include "openvino/runtime/aligned_buffer.hpp"
-#include "openvino/runtime/icompiled_model.hpp"
 #include "openvino/runtime/properties.hpp"
 #include "openvino/runtime/so_ptr.hpp"
 #include "openvino/runtime/tensor.hpp"

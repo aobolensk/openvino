@@ -38,7 +38,6 @@
 # -google-default-arguments,
 # -google-explicit-constructor,
 # -modernize-avoid-c-arrays,
-# -misc-header-include-cycle,
 # -misc-non-private-member-variables-in-classes,
 # -misc-use-anonymous-namespace,
 # -readability-function-cognitive-complexity. Reasonable way to enforce splitting complex code into simple functions
@@ -88,7 +87,6 @@ Checks: >
   -modernize-use-constraints,
   -modernize-use-std-numbers,
   -modernize-use-trailing-return-type,
-  -misc-header-include-cycle,
   -misc-const-correctness,
   -misc-no-recursion,
   -misc-non-private-member-variables-in-classes,

@@ -16,15 +16,16 @@
 #include "openvino/core/model.hpp"
 #include "openvino/core/version.hpp"
 #include "openvino/runtime/common.hpp"
-#include "openvino/runtime/icompiled_model.hpp"
-#include "openvino/runtime/icore.hpp"
 #include "openvino/runtime/iremote_context.hpp"
+#include "openvino/runtime/so_ptr.hpp"
+#include "openvino/runtime/tensor.hpp"
 #include "openvino/runtime/threading/executor_manager.hpp"
 #include "openvino/util/pp.hpp"
 
 namespace ov {
 
 class ICompiledModel;
+class ICore;
 
 /**
  * @defgroup ov_dev_api OpenVINO Plugin API
