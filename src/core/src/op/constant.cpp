@@ -375,6 +375,11 @@ struct ValueToString : ov::element::NotSupported<std::string> {
     static result_type visit(const void* const ptr, const size_t index) {
         return element::iterator<ET>(ptr)[index];
     }
+
+    template <ov::element::Type_t ET, typename std::enable_if<ET == element::dynamic>::type* = nullptr>
+    static result_type visit(const void* const, const size_t) {
+        return {};
+    }
 };
 
 std::string Constant::convert_value_to_string(size_t index) const {
@@ -429,12 +434,18 @@ struct ValuesToString : ov::element::NotSupported<void> {
     static result_type visit(const void* const ptr, const size_t num_elements, std::vector<std::string>& strs) {
         std::copy_n(element::iterator<ET>(ptr), num_elements, std::back_inserter(strs));
     }
+
+    template <ov::element::Type_t ET, typename std::enable_if<ET == element::dynamic>::type* = nullptr>
+    static result_type visit(const void* const, const size_t, std::vector<std::string>&) {}
 };
 
 std::vector<std::string> Constant::get_value_strings() const {
     std::vector<std::string> out;
     using namespace ov::element;
-    IfTypeOf<SUPPORTED_ET, string>::apply<ValuesToString>(get_element_type(), get_data_ptr(), shape_size(m_shape), out);
+    IfTypeOf<SUPPORTED_ET, dynamic, string>::apply<ValuesToString>(get_element_type(),
+                                                                   get_data_ptr(),
+                                                                   shape_size(m_shape),
+                                                                   out);
     return out;
 }
 
