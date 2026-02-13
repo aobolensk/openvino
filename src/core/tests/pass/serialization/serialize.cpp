@@ -93,6 +93,16 @@ TEST_P(SerializePassTestP, serialize_simple_model_with_constant) {
     const auto& [is_valid, error_msg] = model_comparator().compare(serialized_model, m_model);
     EXPECT_TRUE(is_valid) << error_msg;
 }
+
+TEST_F(SerializePassTest, serialize_model_with_dynamic_type_constant) {
+    const auto c1 = std::make_shared<Constant>(element::dynamic, Shape{0});
+    m_model = std::make_shared<Model>(OutputVector{c1}, ParameterVector{}, "dynamic_constant_model");
+
+    std::stringstream xml_stream;
+    std::stringstream bin_stream;
+    EXPECT_NO_THROW(pass::Serialize(xml_stream, bin_stream).run_on_model(m_model));
+}
+
 }  // namespace ov::test
 
 using SerializationParams = std::tuple<std::string, std::string>;

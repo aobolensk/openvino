@@ -2824,6 +2824,14 @@ TEST(constant, cast_vector_ov_string) {
         << "Constant::cast_vector failed empty casting for type " << type;
 }
 
+TEST(constant, dynamic_get_value_strings_returns_empty) {
+    ov::op::v0::Constant c(element::dynamic, Shape{4});
+
+    std::vector<std::string> values;
+    ASSERT_NO_THROW(values = c.get_value_strings());
+    EXPECT_TRUE(values.empty());
+}
+
 TEST(constant, get_values_as) {
     ov::op::v0::Constant c(element::i64, Shape{6}, std::vector<int64_t>{2, -3, 1, 0, 1, 5});
 
