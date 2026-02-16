@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "emitters/utils.hpp"
 #include "kai/ukernels/matmul/pack/kai_rhs_pack_kxn_x16p32x1b_x16_x16_neon.h"
@@ -95,26 +96,64 @@ void GemmCopyBKaiKernelExecutorBase::ensure_kernel(std::shared_ptr<CompiledKerne
     }
 }
 
-template <auto rhs_pack_kxn, typename UkernelT>
+template <auto rhs_pack_kxn, typename UkernelT, typename SrcT>
 static void execute_copy_b_common(const GemmCopyBKernelKaiConfig& config, const UkernelT& uk, void* in0, void* out0) {
     const auto K = config.get_K();
     const auto N = config.get_N();
     const auto copy_b_wei_stride = config.get_copy_b_wei_stride();
     const auto copy_b_col_stride = config.get_copy_b_col_stride();
+    OV_CPU_JIT_EMITTER_ASSERT(copy_b_wei_stride % sizeof(SrcT) == 0 && copy_b_col_stride % sizeof(SrcT) == 0,
+                              "GemmCopyB expects strides aligned by element size");
+
     const auto& n_blk_size = GemmCopyBKernelKaiConfig::get_N_blk();
     const size_t nr = uk.get_nr();
     const size_t kr = uk.get_kr();
     const size_t sr = uk.get_sr();
+    const auto row_stride_elems = copy_b_wei_stride / sizeof(SrcT);
+    const auto col_stride_elems = copy_b_col_stride / sizeof(SrcT);
+    const auto* src_base = static_cast<const SrcT*>(in0);
     size_t n_blocks = ov::snippets::utils::div_up(N, n_blk_size);
+    std::vector<SrcT> contiguous_rhs_tile;
+    const bool need_contiguous_rhs = copy_b_col_stride != sizeof(SrcT);
+
     for (size_t n_block = 0; n_block < n_blocks; n_block++) {
         size_t n_start = n_block * n_blk_size;
         size_t n_end = std::min(n_start + n_blk_size, N);
         size_t n_step = n_end - n_start;
-        auto* src_ptr = static_cast<int8_t*>(in0) + n_start * copy_b_col_stride;
         auto* dst_base = static_cast<int8_t*>(out0);
         const size_t packed_off = uk.get_rhs_packed_offset(n_start, K);
         auto* dst_ptr = dst_base + packed_off;
-        rhs_pack_kxn(1, n_step, K, nr, kr, sr, copy_b_wei_stride, src_ptr, nullptr, nullptr, dst_ptr, 0, nullptr);
+
+        const void* rhs_ptr = nullptr;
+        size_t rhs_row_stride = copy_b_wei_stride;
+        if (need_contiguous_rhs) {
+            contiguous_rhs_tile.resize(K * n_step);
+            for (size_t k = 0; k < K; ++k) {
+                const size_t src_k_base = k * row_stride_elems + n_start * col_stride_elems;
+                auto* dst_row = contiguous_rhs_tile.data() + k * n_step;
+                for (size_t n = 0; n < n_step; ++n) {
+                    dst_row[n] = src_base[src_k_base + n * col_stride_elems];
+                }
+            }
+            rhs_ptr = contiguous_rhs_tile.data();
+            rhs_row_stride = n_step * sizeof(SrcT);
+        } else {
+            rhs_ptr = static_cast<const void*>(reinterpret_cast<const int8_t*>(in0) + n_start * copy_b_col_stride);
+        }
+
+        rhs_pack_kxn(1,
+                     n_step,
+                     K,
+                     nr,
+                     kr,
+                     sr,
+                     rhs_row_stride,
+                     rhs_ptr,
+                     nullptr,
+                     nullptr,
+                     dst_ptr,
+                     0,
+                     nullptr);
     }
 }
 
@@ -138,7 +177,11 @@ void GemmCopyBF32KaiKernelExecutor::execute(const GemmCopyBF32KaiKernelExecutor*
     OV_CPU_JIT_EMITTER_ASSERT(executor, "has nullptr executor");
     const auto& config = static_cast<const GemmCopyBKernelKaiConfig&>(executor->get_config());
     const auto& kernel = executor->get_kernel();
-    execute_copy_b_common<kai_run_rhs_pack_kxn_x32p16x1b_x32_x32_neon>(config, *kernel->copy_b_ukernel, in0, out0);
+    execute_copy_b_common<kai_run_rhs_pack_kxn_x32p16x1b_x32_x32_neon, kai_matmul_clamp_f32_f32_f32p_ukernel, float>(
+        config,
+        *kernel->copy_b_ukernel,
+        in0,
+        out0);
 }
 
 GemmCopyBF16KaiKernelExecutor::GemmCopyBF16KaiKernelExecutor(GemmCopyBKernelKaiConfig config)
@@ -161,7 +204,12 @@ void GemmCopyBF16KaiKernelExecutor::execute(const GemmCopyBF16KaiKernelExecutor*
     OV_CPU_JIT_EMITTER_ASSERT(executor, "has nullptr executor");
     const auto& config = static_cast<const GemmCopyBKernelKaiConfig&>(executor->get_config());
     const auto& kernel = executor->get_kernel();
-    execute_copy_b_common<kai_run_rhs_pack_kxn_x16p32x1b_x16_x16_neon>(config, *kernel->copy_b_ukernel, in0, out0);
+    execute_copy_b_common<kai_run_rhs_pack_kxn_x16p32x1b_x16_x16_neon,
+                          kai_matmul_clamp_f16_f16_f16p_ukernel,
+                          uint16_t>(config,
+                                    *kernel->copy_b_ukernel,
+                                    in0,
+                                    out0);
 }
 
 }  // namespace ov::intel_cpu::aarch64

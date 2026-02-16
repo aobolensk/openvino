@@ -1612,10 +1612,7 @@ void Transformations::MainSnippets() {
             return !ov::intel_cpu::tpp::pass::BrgemmToBrgemmTPP::is_supported_brgemm_configuration(layouts, precisions);
         }
 #endif
-#if defined(OPENVINO_ARCH_ARM64)
-        // KleidiAI matmul primitives do not support transposed B input
-        return false;
-#elif defined(OPENVINO_ARCH_X86_64)
+#if defined(OPENVINO_ARCH_X86_64) || defined(OPENVINO_ARCH_ARM64)
         return true;
 #else
         OPENVINO_THROW("ExplicitTransposeMatMulInputs callback is not supported on this architecture");
