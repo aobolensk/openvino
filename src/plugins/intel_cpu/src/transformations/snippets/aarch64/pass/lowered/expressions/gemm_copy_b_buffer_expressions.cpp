@@ -7,8 +7,10 @@
 #include <cstddef>
 #include <memory>
 
-#include "kai/ukernels/matmul/pack/kai_rhs_pack_kxn_x16p32x1b_x16_x16_neon.h"
-#include "kai/ukernels/matmul/pack/kai_rhs_pack_kxn_x32p16x1b_x32_x32_neon.h"
+#ifdef OV_CPU_WITH_KLEIDIAI
+#    include "kai/ukernels/matmul/pack/kai_rhs_pack_kxn_x16p32x1b_x16_x16_neon.h"
+#    include "kai/ukernels/matmul/pack/kai_rhs_pack_kxn_x32p16x1b_x32_x32_neon.h"
+#endif
 #include "openvino/core/except.hpp"
 #include "openvino/core/node.hpp"
 #include "openvino/core/type.hpp"
@@ -60,10 +62,14 @@ void RepackedWeightsBufferExpression::init_allocation_size(
         return;
     }
     // convert byte size to element type size
+#ifdef OV_CPU_WITH_KLEIDIAI
     const size_t packed_bytes = element_type == ov::element::f16
                                     ? kai_get_rhs_packed_size_rhs_pack_kxn_x16p32x1b_x16_x16_neon(N, K)
                                     : kai_get_rhs_packed_size_rhs_pack_kxn_x32p16x1b_x32_x32_neon(N, K);
     m_allocation_size = packed_bytes / element_type.size();
+#else
+    OPENVINO_THROW("RepackedWeightsBufferExpression::init_allocation_size is not supported without KleidiAI");
+#endif
 }
 
 }  // namespace ov::intel_cpu::aarch64

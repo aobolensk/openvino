@@ -9,8 +9,10 @@
 #ifdef SNIPPETS_DEBUG_CAPS
 
 #    include "emitters/snippets/common/verbose_utils.hpp"
-#    include "jit_gemm_copy_b_emitter.hpp"
-#    include "jit_gemm_emitter.hpp"
+#    ifdef OV_CPU_WITH_KLEIDIAI
+#        include "jit_gemm_copy_b_emitter.hpp"
+#        include "jit_gemm_emitter.hpp"
+#    endif
 #    include "jit_kernel_emitter.hpp"
 #    include "jit_memory_emitters.hpp"
 #    include "jit_segfault_detector_emitter.hpp"
@@ -19,6 +21,7 @@
 
 namespace ov::intel_cpu::aarch64 {
 
+#    ifdef OV_CPU_WITH_KLEIDIAI
 std::string init_info_jit_gemm_emitter(const jit_gemm_emitter* emitter) {
     std::stringstream ss;
     ss << "Emitter_type_name:jit_gemm_emitter"
@@ -36,6 +39,7 @@ std::string init_info_jit_gemm_copy_b_emitter(const jit_gemm_copy_b_emitter* emi
        << " m_buffer_ids:" << ov::util::vector_to_string(emitter->m_buffer_ids);
     return ss.str();
 }
+#    endif
 
 std::string init_info_jit_kernel_static_emitter(const jit_kernel_static_emitter* emitter) {
     std::stringstream ss;
@@ -92,10 +96,12 @@ void jit_emitter_info_t::init(const void* emitter) {
         str_ = snippets_common::init_info_jit_load_broadcast_emitter(e_type);
     } else if (const auto* e_type = dynamic_cast<const jit_store_memory_emitter*>(e)) {
         str_ = snippets_common::init_info_jit_store_memory_emitter(e_type);
+#    ifdef OV_CPU_WITH_KLEIDIAI
     } else if (const auto* e_type = dynamic_cast<const jit_gemm_emitter*>(e)) {
         str_ = init_info_jit_gemm_emitter(e_type);
     } else if (const auto* e_type = dynamic_cast<const jit_gemm_copy_b_emitter*>(e)) {
         str_ = init_info_jit_gemm_copy_b_emitter(e_type);
+#    endif
     } else if (const auto* e_type = dynamic_cast<const jit_kernel_static_emitter*>(e)) {
         str_ = init_info_jit_kernel_static_emitter(e_type);
     } else if (const auto* e_type = dynamic_cast<const jit_kernel_dynamic_emitter*>(e)) {

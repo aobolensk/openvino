@@ -19,8 +19,10 @@
 #include "emitters/plugin/aarch64/jit_conversion_emitters.hpp"
 #include "emitters/plugin/aarch64/jit_eltwise_emitters.hpp"
 #include "emitters/snippets/aarch64/jit_fill_emitter.hpp"
-#include "emitters/snippets/aarch64/jit_gemm_copy_b_emitter.hpp"
-#include "emitters/snippets/aarch64/jit_gemm_emitter.hpp"
+#ifdef OV_CPU_WITH_KLEIDIAI
+#    include "emitters/snippets/aarch64/jit_gemm_copy_b_emitter.hpp"
+#    include "emitters/snippets/aarch64/jit_gemm_emitter.hpp"
+#endif
 #include "emitters/snippets/aarch64/jit_horizon_emitters.hpp"
 #include "emitters/snippets/aarch64/jit_kernel_emitter.hpp"
 #include "emitters/snippets/aarch64/jit_loop_emitters.hpp"
@@ -127,9 +129,12 @@ static bool is_store_emitter(const intel_cpu::aarch64::jit_emitter* emitter) {
 }
 
 static bool is_segfault_detector_emitter(const intel_cpu::aarch64::jit_emitter* emitter) {
-    return is_load_emitter(emitter) || is_store_emitter(emitter) ||
-           (dynamic_cast<const intel_cpu::aarch64::jit_gemm_emitter*>(emitter) != nullptr) ||
-           (dynamic_cast<const intel_cpu::aarch64::jit_gemm_copy_b_emitter*>(emitter) != nullptr);
+    return is_load_emitter(emitter) || is_store_emitter(emitter)
+#    ifdef OV_CPU_WITH_KLEIDIAI
+           || (dynamic_cast<const intel_cpu::aarch64::jit_gemm_emitter*>(emitter) != nullptr) ||
+           (dynamic_cast<const intel_cpu::aarch64::jit_gemm_copy_b_emitter*>(emitter) != nullptr)
+#    endif
+        ;
 }
 
 #endif
@@ -323,10 +328,12 @@ CPUTargetMachine::CPUTargetMachine(dnnl::impl::cpu::aarch64::cpu_isa_t host_isa,
     jitters[ov::op::v0::Sqrt::get_type_info_static()] = emitter_factory.from_node<jit_sqrt_emitter>();
     jitters[ov::intel_cpu::SwishNode::get_type_info_static()] = emitter_factory.from_node<jit_swish_emitter>();
     jitters[ov::op::v0::Tanh::get_type_info_static()] = emitter_factory.from_node<jit_tanh_emitter>();
+#ifdef OV_CPU_WITH_KLEIDIAI
     jitters[ov::intel_cpu::aarch64::GemmCPU::get_type_info_static()] =
         emitter_factory.from_expr_cached<jit_gemm_emitter>();
     jitters[ov::intel_cpu::aarch64::GemmCopyB::get_type_info_static()] =
         emitter_factory.from_expr_cached<jit_gemm_copy_b_emitter>();
+#endif
 #ifdef SNIPPETS_LIBXSMM_TPP
     // brgemm
     jitters[ov::intel_cpu::tpp::op::BrgemmTPP::get_type_info_static()] =

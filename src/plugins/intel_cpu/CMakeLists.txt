@@ -198,6 +198,12 @@ if(NOT AARCH64)
                               ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/kleidiai/*)
 endif()
 
+if(NOT ENABLE_KLEIDIAI_FOR_CPU)
+    list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/snippets/aarch64/kernel_executors/gemm*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/snippets/aarch64/jit_gemm*
+                              ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/executors/kleidiai/*)
+endif()
+
 if (NOT RISCV64)
     list(APPEND EXCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/src/emitters/plugin/riscv64/*
                               ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/kernels/riscv64/*
