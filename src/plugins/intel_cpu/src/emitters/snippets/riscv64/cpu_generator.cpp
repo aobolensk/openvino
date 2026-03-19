@@ -408,15 +408,7 @@ ov::intel_cpu::riscv64::cpu_isa_t CPUTargetMachine::get_isa() const {
 }
 
 CPUGenerator::CPUGenerator(ov::intel_cpu::riscv64::cpu_isa_t isa_, ov::intel_cpu::MultiCacheWeakPtr cache)
-    : Generator(std::make_shared<CPUTargetMachine>(isa_, std::move(cache))) {}
-CPUGenerator::CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target) : Generator(target) {}
-
-std::shared_ptr<ov::snippets::Generator> CPUGenerator::clone() const {
-    const auto& cpu_target_machine = std::dynamic_pointer_cast<CPUTargetMachine>(target);
-    OPENVINO_ASSERT(cpu_target_machine,
-                    "Failed to clone CPUGenerator: the instance contains incompatible TargetMachine type");
-    return std::make_shared<CPUGenerator>(cpu_target_machine);
-}
+    : Base(std::make_shared<CPUTargetMachine>(isa_, std::move(cache))) {}
 
 ov::snippets::RegType CPUGenerator::get_specific_op_out_reg_type(const ov::Output<ov::Node>& out) const {
     const auto op = out.get_node_shared_ptr();
@@ -429,8 +421,7 @@ ov::snippets::RegType CPUGenerator::get_specific_op_out_reg_type(const ov::Outpu
 bool CPUGenerator::uses_precompiled_kernel([[maybe_unused]] const std::shared_ptr<snippets::Emitter>& e) const {
     bool need = false;
 #ifdef SNIPPETS_DEBUG_CAPS
-    const auto cpu_target_machine = std::dynamic_pointer_cast<CPUTargetMachine>(target);
-    need = need || (cpu_target_machine && cpu_target_machine->debug_config.enable_segfault_detector);
+    need = need || is_debug_segfault_detector_enabled();
 #endif
     return need;
 }

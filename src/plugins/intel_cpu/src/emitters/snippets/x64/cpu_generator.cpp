@@ -462,15 +462,7 @@ snippets::CompiledSnippetPtr intel_cpu::CPUTargetMachine::get_snippet() {
 }
 
 intel_cpu::CPUGenerator::CPUGenerator(dnnl::impl::cpu::x64::cpu_isa_t host_isa, ov::intel_cpu::MultiCacheWeakPtr cache)
-    : Generator(std::make_shared<CPUTargetMachine>(host_isa, std::move(cache))) {}
-intel_cpu::CPUGenerator::CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target) : Generator(target) {}
-
-std::shared_ptr<snippets::Generator> intel_cpu::CPUGenerator::clone() const {
-    const auto& cpu_target_machine = std::dynamic_pointer_cast<CPUTargetMachine>(target->clone());
-    OPENVINO_ASSERT(cpu_target_machine,
-                    "Failed to clone CPUGenerator: the instance contains incompatible TargetMachine type");
-    return std::make_shared<CPUGenerator>(cpu_target_machine);
-}
+    : Base(std::make_shared<CPUTargetMachine>(host_isa, std::move(cache))) {}
 
 ov::snippets::RegType intel_cpu::CPUGenerator::get_specific_op_out_reg_type(const ov::Output<ov::Node>& out) const {
     const auto op = out.get_node_shared_ptr();
@@ -493,8 +485,7 @@ bool intel_cpu::CPUGenerator::uses_precompiled_kernel(const std::shared_ptr<snip
                 // Note: in static case, loop args, used in execute, are stored in the emitter
                 std::dynamic_pointer_cast<intel_cpu::jit_parallel_loop_begin_emitter>(e);
 #ifdef SNIPPETS_DEBUG_CAPS
-    const auto cpu_target_machine = std::dynamic_pointer_cast<intel_cpu::CPUTargetMachine>(target);
-    need = need || (cpu_target_machine && cpu_target_machine->debug_config.enable_segfault_detector) ||
+    need = need || is_debug_segfault_detector_enabled() ||
            std::dynamic_pointer_cast<intel_cpu::jit_perf_count_chrono_start_emitter>(e) ||
            std::dynamic_pointer_cast<intel_cpu::jit_perf_count_chrono_end_emitter>(e) ||
            std::dynamic_pointer_cast<intel_cpu::jit_perf_count_rdtsc_start_emitter>(e) ||

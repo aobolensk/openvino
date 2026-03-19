@@ -13,10 +13,10 @@
 #include "cache/multi_cache.h"
 #include "cpu/aarch64/jit_generator.hpp"
 #include "emitters/snippets/common/compiled_snippet_cpu.hpp"
+#include "emitters/snippets/common/cpu_generator_base.hpp"
 #include "openvino/core/node.hpp"
 #include "openvino/core/node_output.hpp"
 #include "snippets/emitter.hpp"
-#include "snippets/generator.hpp"
 #include "snippets/target_machine.hpp"
 
 #ifdef SNIPPETS_DEBUG_CAPS
@@ -50,11 +50,12 @@ private:
     ov::intel_cpu::MultiCacheWeakPtr compiled_kernel_cache;
 };
 
-class CPUGenerator : public snippets::Generator {
+class CPUGenerator : public ov::intel_cpu::CPUGeneratorBase<CPUGenerator, CPUTargetMachine> {
+    using Base = ov::intel_cpu::CPUGeneratorBase<CPUGenerator, CPUTargetMachine>;
+
 public:
     CPUGenerator(dnnl::impl::cpu::aarch64::cpu_isa_t isa, ov::intel_cpu::MultiCacheWeakPtr cache);
-    CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target);
-    std::shared_ptr<Generator> clone() const override;
+    explicit CPUGenerator(const std::shared_ptr<CPUTargetMachine>& target) : Base(target) {}
 
 protected:
     bool uses_precompiled_kernel(const std::shared_ptr<snippets::Emitter>& emitter) const override;
