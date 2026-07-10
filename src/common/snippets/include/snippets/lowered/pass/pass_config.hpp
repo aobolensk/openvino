@@ -4,9 +4,16 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <unordered_set>
 
 #include "openvino/core/type.hpp"
+
+namespace ov::snippets::lowered {
+class Expression;
+using ExpressionPtr = std::shared_ptr<Expression>;
+}  // namespace ov::snippets::lowered
 
 namespace ov::snippets::lowered::pass {
 
@@ -18,6 +25,8 @@ namespace ov::snippets::lowered::pass {
  */
 class PassConfig {
 public:
+    using RegSpillPredicate = std::function<bool(const ExpressionPtr&)>;
+
     PassConfig() = default;
 
     void disable(const DiscreteTypeInfo& type_info);
@@ -44,12 +53,17 @@ public:
         return is_enabled(T::get_type_info_static());
     }
 
+    void set_reg_spill_predicate(RegSpillPredicate predicate);
+    bool has_reg_spill_predicate() const;
+    const RegSpillPredicate& get_reg_spill_predicate() const;
+
     friend bool operator==(const PassConfig& lhs, const PassConfig& rhs);
     friend bool operator!=(const PassConfig& lhs, const PassConfig& rhs);
 
 private:
     std::unordered_set<DiscreteTypeInfo> m_disabled;
     std::unordered_set<DiscreteTypeInfo> m_enabled;
+    RegSpillPredicate m_reg_spill_predicate = nullptr;
 };
 
 }  // namespace ov::snippets::lowered::pass

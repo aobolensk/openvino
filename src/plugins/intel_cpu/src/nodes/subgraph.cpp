@@ -11,6 +11,7 @@
 #include <numeric>
 #include <oneapi/dnnl/dnnl_common.hpp>
 #include <set>
+#include <string>
 
 #include "common/primitive_hashing_utils.hpp"
 #include "cpu_types.h"
@@ -29,6 +30,7 @@
 #include "openvino/core/type/element_type.hpp"
 #include "shape_inference/custom/subgraph.hpp"
 #include "shape_inference/shape_inference_cpu.hpp"
+#include "snippets/lowered/pass/insert_reg_spills.hpp"
 #include "snippets/lowered/pass/pass_config.hpp"
 #include "snippets/op/subgraph.hpp"
 #include "snippets/pass/analyze_broadcastable_inputs.hpp"
@@ -866,6 +868,21 @@ void Subgraph::optimizeIR() {
     subgraph->shape_infer(in_shapes);
 
     const auto control_flow_config = std::make_shared<ov::snippets::lowered::pass::PassConfig>();
+    std::set<std::string> force_reg_spill_nodes;
+    for (const auto& op : subgraph->body().get_ops()) {
+        const auto& rt_info = op->get_rt_info();
+        const auto it = rt_info.find(ov::snippets::lowered::pass::force_reg_spill_rt_info);
+        if (it != rt_info.end() && it->second.as<bool>()) {
+            force_reg_spill_nodes.insert(op->get_friendly_name());
+        }
+    }
+    if (!force_reg_spill_nodes.empty()) {
+        control_flow_config->set_reg_spill_predicate(
+            [force_reg_spill_nodes = std::move(force_reg_spill_nodes)](
+                const ov::snippets::lowered::ExpressionPtr& expr) {
+                return force_reg_spill_nodes.count(expr->get_node()->get_friendly_name()) != 0U;
+            });
+    }
     const auto control_flow_passes = getControlFlowPasses();
 
 #ifdef SNIPPETS_LIBXSMM_TPP

@@ -4,6 +4,8 @@
 
 #include "snippets/lowered/pass/pass_config.hpp"
 
+#include <utility>
+
 #include "openvino/core/type.hpp"
 
 namespace ov::snippets::lowered::pass {
@@ -24,6 +26,18 @@ bool PassConfig::is_disabled(const DiscreteTypeInfo& type_info) const {
 
 bool PassConfig::is_enabled(const DiscreteTypeInfo& type_info) const {
     return m_enabled.count(type_info) != 0U;
+}
+
+void PassConfig::set_reg_spill_predicate(RegSpillPredicate predicate) {
+    m_reg_spill_predicate = std::move(predicate);
+}
+
+bool PassConfig::has_reg_spill_predicate() const {
+    return static_cast<bool>(m_reg_spill_predicate);
+}
+
+const PassConfig::RegSpillPredicate& PassConfig::get_reg_spill_predicate() const {
+    return m_reg_spill_predicate;
 }
 
 bool operator==(const PassConfig& lhs, const PassConfig& rhs) {

@@ -17,6 +17,8 @@
 
 namespace ov::snippets::lowered::pass {
 
+inline constexpr const char* force_reg_spill_rt_info = "SnippetsForceRegSpill";
+
 /**
  * @brief Default function to enable RegSpill insertion
  * @return True if RegSpill is required around a certain op, False otherwise.
