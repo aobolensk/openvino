@@ -4,25 +4,32 @@
 
 #include "lowered/pass/buffer_allocation.hpp"
 
+#include <gtest/gtest.h>
+
+#include <memory>
+
+#include "common_test_utils/common_utils.hpp"
 #include "openvino/core/node_vector.hpp"
 #include "openvino/opsets/opset1.hpp"
+#include "snippets/lowered/linear_ir.hpp"
+#include "snippets/lowered/pass/allocate_buffers.hpp"
+#include "snippets/lowered/pass/compute_buffer_allocation_size.hpp"
+#include "snippets/lowered/pass/define_buffer_clusters.hpp"
+#include "snippets/lowered/pass/fuse_loops.hpp"
+#include "snippets/lowered/pass/init_loops.hpp"
+#include "snippets/lowered/pass/insert_buffers.hpp"
+#include "snippets/lowered/pass/insert_load_store.hpp"
+#include "snippets/lowered/pass/insert_loops.hpp"
+#include "snippets/lowered/pass/mark_invariant_shape_path.hpp"
+#include "snippets/lowered/pass/mark_loops.hpp"
+#include "snippets/lowered/pass/reduce_decomposition.hpp"
+#include "snippets/lowered/pass/set_buffer_reg_group.hpp"
+#include "snippets/lowered/pass/solve_buffer_memory.hpp"
+#include "snippets/lowered/pass/split_loops.hpp"
 #include "snippets/op/buffer.hpp"
 #include "snippets/op/result.hpp"
 #include "snippets/op/subgraph.hpp"
-#include "snippets/lowered/linear_ir.hpp"
 #include "snippets/pass/positioned_pass.hpp"
-#include "snippets/lowered/pass/mark_loops.hpp"
-#include "snippets/lowered/pass/init_loops.hpp"
-#include "snippets/lowered/pass/insert_load_store.hpp"
-#include "snippets/lowered/pass/insert_loops.hpp"
-#include "snippets/lowered/pass/allocate_buffers.hpp"
-#include "snippets/lowered/pass/fuse_loops.hpp"
-#include "snippets/lowered/pass/split_loops.hpp"
-#include "snippets/lowered/pass/insert_buffers.hpp"
-#include "snippets/lowered/pass/reduce_decomposition.hpp"
-
-#include "common_test_utils/common_utils.hpp"
-
 
 namespace ov {
 namespace test {
@@ -231,6 +238,111 @@ INSTANTIATE_TEST_SUITE_P(smoke_Snippets_BufferAllocation_WideBranch,
                          WideBranchBufferAllocationTest::getTestCaseName);
 
 }  // namespace BufferAllocationTest_Instances
+
+class SolveBufferMemoryReturnTest : public testing::Test {
+protected:
+    void SetUp() override {
+        m_linear_ir = std::make_shared<ov::snippets::lowered::LinearIR>();
+    }
+
+    std::shared_ptr<ov::snippets::lowered::LinearIR> m_linear_ir;
+};
+
+TEST_F(SolveBufferMemoryReturnTest, ReturnsTrueForStaticBuffers) {
+    // Build a simple model with a buffer: Param -> Add -> Buffer -> Relu -> Result
+    const ov::PartialShape shape{1, 3, 100, 100};
+    const auto subtensor_eltwise = std::vector<size_t>{1, 16};
+
+    const auto param0 = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, shape);
+    const auto param1 = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, shape);
+    const auto add = std::make_shared<ov::op::v1::Add>(param0, param1);
+    const auto buffer = std::make_shared<ov::snippets::op::Buffer>(add);
+    const auto relu = std::make_shared<ov::op::v0::Relu>(buffer);
+    const auto result = std::make_shared<ov::snippets::op::Result>(relu);
+    const auto body = std::make_shared<ov::Model>(result, ov::ParameterVector{param0, param1});
+
+    // Set port descriptors
+    for (const auto& node : {std::static_pointer_cast<ov::Node>(add), std::static_pointer_cast<ov::Node>(relu)}) {
+        for (const auto& input : node->inputs()) {
+            ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+                input,
+                std::make_shared<ov::snippets::lowered::PortDescriptor>(input, subtensor_eltwise));
+        }
+        for (const auto& output : node->outputs()) {
+            ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+                output,
+                std::make_shared<ov::snippets::lowered::PortDescriptor>(output, subtensor_eltwise));
+        }
+    }
+    const auto subtensor_buffer = std::vector<size_t>(2, ov::snippets::utils::get_full_dim_value());
+    for (const auto& input : buffer->inputs()) {
+        ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+            input,
+            std::make_shared<ov::snippets::lowered::PortDescriptor>(input, subtensor_buffer));
+    }
+    for (const auto& output : buffer->outputs()) {
+        ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+            output,
+            std::make_shared<ov::snippets::lowered::PortDescriptor>(output, subtensor_buffer));
+    }
+
+    ov::snippets::lowered::LinearIR linear_ir(body, std::make_shared<ov::snippets::IShapeInferSnippetsFactory>());
+    linear_ir.set_loop_depth(2);
+
+    // Run prerequisite passes to make buffers "defined" (static)
+    ov::snippets::lowered::pass::PassPipeline prereq;
+    prereq.register_pass<ov::snippets::lowered::pass::MarkLoops>(16);
+    prereq.register_pass<ov::snippets::lowered::pass::InsertBuffers>();
+    prereq.register_pass<ov::snippets::lowered::pass::InsertLoadStore>(16);
+    prereq.register_pass<ov::snippets::lowered::pass::InitLoops>();
+    prereq.register_pass<ov::snippets::lowered::pass::InsertLoops>();
+    prereq.register_pass<ov::snippets::lowered::pass::ComputeBufferAllocationSize>();
+    prereq.register_pass<ov::snippets::lowered::pass::MarkInvariantShapePath>();
+    prereq.register_pass<ov::snippets::lowered::pass::SetBufferRegGroup>();
+    prereq.register_pass<ov::snippets::lowered::pass::DefineBufferClusters>();
+    prereq.run(linear_ir);
+
+    // Verify buffers exist and are static (defined)
+    ASSERT_FALSE(linear_ir.get_buffers().empty());
+    for (const auto& buf : linear_ir.get_buffers()) {
+        ASSERT_TRUE(buf->is_defined());
+    }
+
+    // Directly test SolveBufferMemory::run return value
+    size_t scratchpad_size = 0;
+    ov::snippets::lowered::pass::SolveBufferMemory pass(scratchpad_size);
+    EXPECT_TRUE(pass.run(linear_ir));
+}
+
+TEST_F(SolveBufferMemoryReturnTest, ReturnsFalseForNoBuffers) {
+    // Build a simple model without buffers: Param -> Add -> Result
+    const ov::PartialShape shape{1, 3, 100, 100};
+    const auto subtensor = std::vector<size_t>{1, 16};
+
+    const auto param0 = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, shape);
+    const auto param1 = std::make_shared<ov::op::v0::Parameter>(ov::element::f32, shape);
+    const auto add = std::make_shared<ov::op::v1::Add>(param0, param1);
+    const auto result = std::make_shared<ov::snippets::op::Result>(add);
+    const auto body = std::make_shared<ov::Model>(result, ov::ParameterVector{param0, param1});
+
+    for (const auto& input : add->inputs()) {
+        ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+            input,
+            std::make_shared<ov::snippets::lowered::PortDescriptor>(input, subtensor));
+    }
+    for (const auto& output : add->outputs()) {
+        ov::snippets::lowered::PortDescriptorUtils::set_port_descriptor_ptr(
+            output,
+            std::make_shared<ov::snippets::lowered::PortDescriptor>(output, subtensor));
+    }
+
+    ov::snippets::lowered::LinearIR linear_ir(body, std::make_shared<ov::snippets::IShapeInferSnippetsFactory>());
+
+    size_t scratchpad_size = 0;
+    ov::snippets::lowered::pass::SolveBufferMemory pass(scratchpad_size);
+    EXPECT_FALSE(pass.run(linear_ir));
+}
+
 }  // namespace snippets
 }  // namespace test
 }  // namespace ov
