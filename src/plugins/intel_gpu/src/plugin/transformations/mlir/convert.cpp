@@ -21,6 +21,7 @@
 #include <openvino/op/reduce_min.hpp>
 #include <openvino/op/reduce_prod.hpp>
 #include <openvino/op/reduce_sum.hpp>
+#include <openvino/op/scaled_dot_product_attention.hpp>
 #include <openvino/op/sqrt.hpp>
 #include <openvino/op/subtract.hpp>
 #include <openvino/op/tanh.hpp>
@@ -56,6 +57,7 @@
 #include "mlir_evaluate.hpp"
 #include "openvino/core/dimension.hpp"
 #include "openvino/core/symbol.hpp"
+#include "openvino/runtime/intel_gpu/remote_properties.hpp"
 #include "subgraph_tracker.hpp"
 #include "transformations/symbolic_transformations/symbolic_optimizations.hpp"
 
@@ -488,6 +490,60 @@ namespace {
 using namespace mlir;
 using namespace ov::intel_gpu::mlir;
 
+#ifdef OV_GPU_MLIR_OCL_SOURCE
+class OclSourceSupportedShapes : public ov::pass::ModelPass {
+    bool fp16;
+    bool fp64;
+
+public:
+    OPENVINO_MODEL_PASS_RTTI("OclSourceSupportedShapes");
+
+    explicit OclSourceSupportedShapes(const std::string& extensions)
+        : fp16(extensions.find("cl_khr_fp16") != std::string::npos),
+          fp64(extensions.find("cl_khr_fp64") != std::string::npos) {}
+
+    bool run_on_model(const std::shared_ptr<ov::Model>& model) override {
+        for (const auto& node : model->get_ordered_ops()) {
+            if (!has_subgraph_mark(node)) {
+                continue;
+            }
+            auto supported = [this](const ov::Output<ov::Node>& value) {
+                const auto type = value.get_element_type();
+                return value.get_partial_shape().is_static() &&
+                       (type == ov::element::f32 || (fp16 && type == ov::element::f16) || (fp64 && type == ov::element::f64) || type == ov::element::boolean ||
+                        type == ov::element::i8 || type == ov::element::i16 || type == ov::element::i32 || type == ov::element::i64);
+            };
+            const auto inputs = node->input_values();
+            const auto outputs = node->outputs();
+            bool eligible = std::all_of(inputs.begin(), inputs.end(), supported) && std::all_of(outputs.begin(), outputs.end(), supported);
+            if (eligible && ov::is_type<ov::op::v13::ScaledDotProductAttention>(node)) {
+                const auto query = node->get_input_shape(0);
+                const auto key = node->get_input_shape(1);
+                const auto value = node->get_input_shape(2);
+                for (size_t i = 0; i + 2 < query.size(); ++i) {
+                    eligible &= query[i] == key[i] && query[i] == value[i];
+                }
+                eligible &= node->get_output_element_type(0) == ov::element::f32 || node->get_output_element_type(0) == ov::element::f16;
+                if (node->get_input_size() > 3) {
+                    const auto mask = node->get_input_shape(3);
+                    if (!mask.empty()) {
+                        eligible &= mask.size() >= 2 && mask.size() <= query.size();
+                        eligible &= node->get_input_element_type(3) == ov::element::f32 || node->get_input_element_type(3) == ov::element::f16;
+                        for (size_t i = 0; i + 2 < mask.size(); ++i) {
+                            eligible &= mask[i] == 1;
+                        }
+                    }
+                }
+            }
+            if (!eligible) {
+                node->get_rt_info().erase(subgraph_mark());
+            }
+        }
+        return false;
+    }
+};
+#endif
+
 void injectMLIR(const std::shared_ptr<ov::Model>& model,
                 MLIRContext* context,
                 const ov::intel_gpu::ExecutionConfig& config,
@@ -526,6 +582,23 @@ void injectMLIR(const std::shared_ptr<ov::Model>& model,
     manager.register_pass<TransposePattern>();
     manager.register_pass<UnsqueezePattern>();
     manager.register_pass<MatMulPattern>();
+#ifdef OV_GPU_MLIR_OCL_SOURCE
+    const auto context_it = loweringContext->find(ov::intel_gpu::ocl_context.name());
+    OPENVINO_ASSERT(context_it != loweringContext->end(), "Missing OpenCL context for MLIR");
+    const auto ocl_context = reinterpret_cast<cl_context>(context_it->second.as<void*>());
+    cl_device_id device = nullptr;
+    size_t devices_size = 0;
+    OPENVINO_ASSERT(clGetContextInfo(ocl_context, CL_CONTEXT_DEVICES, sizeof(device), &device, &devices_size) == CL_SUCCESS && devices_size == sizeof(device),
+                    "Expected one device in the MLIR OpenCL context");
+    if (gc::gpu::useOclSourceBackend(device)) {
+        size_t size = 0;
+        OPENVINO_ASSERT(clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, nullptr, &size) == CL_SUCCESS, "Cannot query MLIR OpenCL device extensions");
+        std::string extensions(size, '\0');
+        OPENVINO_ASSERT(clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, size, extensions.data(), nullptr) == CL_SUCCESS,
+                        "Cannot query MLIR OpenCL device extensions");
+        manager.register_pass<OclSourceSupportedShapes>(extensions);
+    }
+#endif
     manager.register_pass<PatternMatcher>(config.get_mlir_patterns());
     manager.register_pass<Partitioner>(context, loweringContext);
     manager.run_passes(model);

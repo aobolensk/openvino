@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "common/convert_common.hpp"
-#include "gc/ExecutionEngine/GPURuntime/GpuOclRuntime.h"
 #include "gc/Transforms/Passes.h"
 #include "interface/properties.hpp"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -47,9 +46,6 @@ MLIREvaluateGcGPU::MLIREvaluateGcGPU(OwningOpRef<::mlir::ModuleOp> _module, cons
         OPENVINO_MLIR_DEBUG_PRINT("-----------------------------------------");
     }
 
-    gc::gpu::OclModuleBuilderOpts opts;
-    gc::gpu::OclModuleBuilder builder(std::move(_module), opts);
-
     auto it = loweringContext->find(ov::intel_gpu::ocl_context.name());
     if (it == loweringContext->end()) {
         OPENVINO_THROW("No cl_context provided for OpenCL execution");
@@ -58,14 +54,64 @@ MLIREvaluateGcGPU::MLIREvaluateGcGPU(OwningOpRef<::mlir::ModuleOp> _module, cons
     // assuming there's always one device per context
     auto* device = extract_device_from_context(context);
 
+#ifdef OV_GPU_MLIR_OCL_SOURCE
+    if (gc::gpu::useOclSourceBackend(device)) {
+        auto mod = gc::gpu::OclSourceModule::build(*_module, device, context);
+        if (!mod) {
+            OPENVINO_THROW(llvm::toString(mod.takeError()));
+        }
+        source_module = std::make_unique<const gc::gpu::OclSourceModule>(std::move(*mod));
+        return;
+    }
+#endif
+#if !defined(GC_ENABLE_IGC) || GC_ENABLE_IGC
+    gc::gpu::OclModuleBuilderOpts opts;
+    gc::gpu::OclModuleBuilder builder(std::move(_module), opts);
     if (auto mod = builder.build(device, context)) {
         module = std::make_unique<const gc::gpu::OclModule>(*mod);
     } else {
-        OPENVINO_THROW("Failed to build gc::gpuOclModule module");
+        OPENVINO_THROW("Failed to build gc::gpuOclModule module: ", llvm::toString(mod.takeError()));
     }
+#endif
 }
 
 bool MLIREvaluateGcGPU::invoke(const ov::TensorVector& inputs, ov::TensorVector& outputs, const ov::EvaluationContext& evaluationContext) {
+#ifdef OV_GPU_MLIR_OCL_SOURCE
+    if (source_module) {
+        const auto& arg_types = evaluationContext.at(ov::internal::mlir_meta::is_kernel_arg_usm.name()).as<std::vector<bool>>();
+        OPENVINO_ASSERT(arg_types.size() == inputs.size() + outputs.size(), "MLIR argument count mismatch");
+        std::vector<cl_mem> args;
+        for (bool is_usm : arg_types) {
+            OPENVINO_ASSERT(!is_usm, "OpenCL source MLIR requires device buffers");
+        }
+        for (const auto& input : inputs) {
+            args.push_back(reinterpret_cast<cl_mem>(const_cast<void*>(input.data())));
+        }
+        for (const auto& output : outputs) {
+            args.push_back(reinterpret_cast<cl_mem>(const_cast<void*>(output.data())));
+        }
+        const auto queue = reinterpret_cast<cl_command_queue>(evaluationContext.at(ov::intel_gpu::ocl_queue.name()).as<void*>());
+        std::vector<cl_event> waits;
+        const auto wait_it = evaluationContext.find(ov::internal::mlir_meta::wait_list.name());
+        if (wait_it != evaluationContext.end()) {
+            for (auto event : wait_it->second.as<std::vector<void*>>()) {
+                waits.push_back(reinterpret_cast<cl_event>(event));
+            }
+        }
+        cl_event event = nullptr;
+        if (auto err = source_module->invoke(queue, args, waits, &event)) {
+            OPENVINO_THROW(llvm::toString(std::move(err)));
+        }
+        const auto results = evaluationContext.find(ov::internal::mlir_meta::result_events.name());
+        if (results != evaluationContext.end()) {
+            results->second.as<std::vector<void*>*>()->push_back(event);
+        } else {
+            clReleaseEvent(event);
+        }
+        return true;
+    }
+#endif
+#if !defined(GC_ENABLE_IGC) || GC_ENABLE_IGC
     gc::gpu::OclContext ctx = build_ocl_context(evaluationContext);
     gc::gpu::StaticExecutor<> exec(*module);
 
@@ -88,9 +134,13 @@ bool MLIREvaluateGcGPU::invoke(const ov::TensorVector& inputs, ov::TensorVector&
     // cldnn::mlir_primitive builds the event returned by the primitive
     maybe_set_result_events(evaluationContext, ctx);
     return true;
+#else
+    OPENVINO_THROW("No MLIR execution backend available");
+#endif
 }
 
 bool MLIREvaluateGcGPU::invoke_packed(std::vector<void*>& args, const ov::EvaluationContext& evaluationContext) {
+#if !defined(GC_ENABLE_IGC) || GC_ENABLE_IGC
     gc::gpu::OclContext ctx = build_ocl_context(evaluationContext);
     gc::gpu::DynamicExecutor<> exec(*module);
 
@@ -112,8 +162,12 @@ bool MLIREvaluateGcGPU::invoke_packed(std::vector<void*>& args, const ov::Evalua
     // cldnn::mlir_primitive builds the event returned by the primitive
     maybe_set_result_events(evaluationContext, ctx);
     return true;
+#else
+    OPENVINO_THROW("Dynamic shapes are not supported by OpenCL source MLIR");
+#endif
 }
 
+#if !defined(GC_ENABLE_IGC) || GC_ENABLE_IGC
 void MLIREvaluateGcGPU::maybe_set_result_events(const ov::EvaluationContext& evaluationContext, gc::gpu::OclContext& ctx) {
     auto events_it = evaluationContext.find(ov::internal::mlir_meta::result_events.name());
     if (events_it == evaluationContext.end()) {
@@ -162,4 +216,5 @@ gc::gpu::OclContext MLIREvaluateGcGPU::build_ocl_context(const ov::EvaluationCon
     return gc::gpu::OclContext(module->runtime, queue, createEvents, waitListLen, reinterpret_cast<cl_event*>(waitList.data()));
 }
 
+#endif
 }  // namespace ov::intel_gpu::mlir

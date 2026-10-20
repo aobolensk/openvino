@@ -34,6 +34,41 @@ cmake -S <openvino> -B <build> \
   ...
 ```
 
+## Non-Intel OpenCL GPUs
+
+Use a Graph Compiler checkout with the OpenCL source backend. With the local checkout:
+
+```sh
+cmake -S <openvino> -B <build> \
+  -DENABLE_INTEL_GPU=ON -DGPU_RT_TYPE=OCL \
+  -DENABLE_DEBUG_CAPS=ON -DENABLE_MLIR_FOR_GPU=ON \
+  -DENABLE_IGC_FOR_GPU=OFF \
+  -DGRAPH_COMPILER_SOURCE_DIR="$HOME/Projects/openvinotoolkit/graph-compiler" \
+  -DMLIR_DIR="<llvm-build>/lib/cmake/mlir" \
+  -DLLVM_DIR="<llvm-build>/lib/cmake/llvm"
+cmake --build <build> --target openvino_intel_gpu_plugin --parallel
+```
+
+With IGC enabled, OpenVINO selects the source backend by OpenCL vendor ID for non-Intel
+devices. With IGC disabled, it uses the source backend on every device. The backend does
+not require IGC, ocloc, Level Zero, XeVM, or the LLVM SPIR-V backend. IGC defaults to OFF
+on macOS, where its dependencies are unavailable. For a separately built Graph Compiler,
+use `-DGC_ENABLE_IGC=OFF` and supply `GraphCompiler_DIR` instead of
+`GRAPH_COMPILER_SOURCE_DIR`.
+
+The source backend uses OpenCL 1.2 buffers and the platform OpenCL C compiler. It shares
+MLIR decomposition, elementwise fusion, and bufferization. XeGPU tiling and vectorization
+remain part of the Intel backend. Source execution currently supports static shapes and
+requires the device extensions for fp16 or fp64. Portable attention materializes the score
+matrix. Nodes with dynamic shapes or unsupported
+precisions remain on the regular GPU path.
+
+For example, enable all eligible MLIR operations when running a model with f32 precision:
+
+```sh
+OV_GPU_ENABLE_MLIR=1 OV_GPU_MLIR_PATTERNS='*' <application>
+```
+
 ## 3. Run
 
 ```sh

@@ -188,6 +188,9 @@ function(ov_gpu_build_stack RT_TYPE SUFFIX MODULE_NAME)
         target_include_directories(${mlir_lib} PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/
                 ${OV_GPU_MLIR_DIR})
+        if(TARGET GcGpuOclSourceRuntime)
+            target_compile_definitions(${mlir_lib} PRIVATE OV_GPU_MLIR_OCL_SOURCE)
+        endif()
         # Not created via ov_add_plugin, so clang-tidy has to be applied explicitly.
         ov_apply_clang_tidy(TARGET ${mlir_lib})
 
