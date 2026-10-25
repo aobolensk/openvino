@@ -74,8 +74,8 @@ GatherPattern::GatherPattern() : MarkPattern(wrap_type<v8::Gather>({any_input(),
 // linalgx.grouped_matmul covers the 2Dx3D (MoE forward pass) case of GroupedMatMul-17 only:
 // its lhs must be rank 2.
 GroupedMatMulPattern::GroupedMatMulPattern()
-    : MarkPattern(wrap_type<v17::GroupedMatMul>({any_input(rank_equals(2) && type_matches_any({element::f16, element::bf16})),
-                                                 any_input(shape_matches("E, N, K") && type_matches_any({element::f16, element::bf16})),
+    : MarkPattern(wrap_type<v17::GroupedMatMul>({any_input(rank_equals(2) && type_matches_any({element::f16, element::bf16, element::f32})),
+                                                 any_input(shape_matches("E, N, K") && type_matches_any({element::f16, element::bf16, element::f32})),
                                                  any_input(shape_matches("E"))}),
                   ConvertGroupedMatMul()) {}
 

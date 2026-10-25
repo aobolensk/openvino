@@ -72,6 +72,9 @@ function(ov_add_plugin)
         endif()
 
         add_library(${OV_PLUGIN_NAME} ${library_type} ${input_files})
+        if(BUILD_SHARED_LIBS AND OV_PLUGIN_LINKABLE)
+            set_target_properties(${OV_PLUGIN_NAME} PROPERTIES SUFFIX "${CMAKE_SHARED_MODULE_SUFFIX}")
+        endif()
 
         if(OV_PLUGIN_VERSION_DEFINES_FOR)
             ov_add_version_defines(${OV_PLUGIN_VERSION_DEFINES_FOR} ${OV_PLUGIN_NAME})

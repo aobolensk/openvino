@@ -42,6 +42,13 @@ ov_add_test_target(
             ${GPU_FUNC_TEST_CHECK_SOURCES_EXCLUDE_FILES}
 )
 
+if(ENABLE_MLIR_FOR_GPU)
+    add_test(NAME ov_gpu_mlir_tests COMMAND ${TARGET_NAME} --gtest_filter=mlir_*)
+    set_tests_properties(ov_gpu_mlir_tests PROPERTIES
+        ENVIRONMENT "OV_GPU_ENABLE_MLIR=1"
+        LABELS "OV;GPU;MLIR")
+endif()
+
 # Functional tests load the plugin dynamically; OV_GPU_WITH_*_RT only selects which remote-tensor
 # interop tests compile. COMBINED ships both runtimes, so compile both sets; single-RT its own.
 if(GPU_RT_TYPE STREQUAL "COMBINED")

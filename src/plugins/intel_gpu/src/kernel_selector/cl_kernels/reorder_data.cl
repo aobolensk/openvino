@@ -24,6 +24,18 @@
 #define INPUT_COMPUTE_TYPE4 MAKE_VECTOR_TYPE(INPUT_REORDER_COMPUTE_TYPE, 4)
 #define OUTPUT_COMPUTE_TYPE4 MAKE_VECTOR_TYPE(OUTPUT_REORDER_COMPUTE_TYPE, 4)
 
+#if FP16_STORAGE
+inline float FUNC(storage_half_to_float)(ushort value) {
+    return vload_half(0, (const __private half*)&value);
+}
+
+inline ushort FUNC(storage_float_to_half)(float value) {
+    ushort bits;
+    vstore_half_rte(value, 0, (__private half*)&bits);
+    return bits;
+}
+#endif
+
 KERNEL (reorder_data)(
     OPTIONAL_SHAPE_INFO_ARG
 #if INPUT0_LAYOUT_NV12 || INPUT0_LAYOUT_IMAGE_2D_RGBA || SURFACE_INPUT

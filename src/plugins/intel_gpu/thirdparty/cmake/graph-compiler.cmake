@@ -9,15 +9,14 @@ find_package(GraphCompiler QUIET CONFIG)
 
 if (NOT GraphCompiler_FOUND)
   option(GRAPH_COMPILER_DYLINK "Use dynamic linking with GraphCompiler" OFF)
-  set(GRAPH_COMPILER_REPO "https://github.com/dchigarev/graph-compiler" CACHE STRING "GraphCompiler repository URL")
-  set(GRAPH_COMPILER_TAG "ov_pin/0.1.1" CACHE STRING "GraphCompiler git tag/branch")
+  set(GRAPH_COMPILER_REPO "https://github.com/aobolensk/graph-compiler" CACHE STRING "GraphCompiler repository URL")
+  set(GRAPH_COMPILER_TAG "1e08c13cd4ee1ed80bfbb0eb7909834eb81641d3" CACHE STRING "GraphCompiler git revision")
   message(STATUS "GraphCompiler not found, fetching from: ${GRAPH_COMPILER_REPO}")
   include(FetchContent)
   FetchContent_Declare(
       GraphCompiler
       GIT_REPOSITORY ${GRAPH_COMPILER_REPO}
       GIT_TAG ${GRAPH_COMPILER_TAG}
-      GIT_SHALLOW TRUE
   )
   set(GC_ENABLE_TEST OFF CACHE BOOL "" FORCE)
   set(GC_ENABLE_TOOLS OFF CACHE BOOL "" FORCE)

@@ -98,6 +98,7 @@ public:
 protected:
     void SetUp() override {
         targetDevice = ov::test::utils::DEVICE_GPU;
+        convert_precisions[ov::element::f16] = ov::element::f32;
         const auto prec = ov::element::f16;
         const auto& [a_shape, b_shape] = GetParam();
 
@@ -153,6 +154,7 @@ public:
 protected:
     void SetUp() override {
         targetDevice = ov::test::utils::DEVICE_GPU;
+        convert_precisions[ov::element::f16] = ov::element::f32;
         const auto prec = ov::element::f16;
         const auto& [a0_shape, a1_shape, b_shape] = GetParam();
 

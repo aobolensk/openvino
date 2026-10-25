@@ -50,11 +50,39 @@ ParamsKey ReorderKernelRef::GetSupportedKey() const {
     k.EnableTensorPitches();
     k.EnableBatching();
     k.EnableDynamicShapesSupport();
+    k.EnableFP16Emulation();
     return k;
 }
 
 JitConstants ReorderKernelRef::GetJitConstants(const reorder_params& params) const {
     auto jit = ReorderKernelBase::GetJitConstants(params);
+    const bool input_half = params.inputs[0].GetDType() == Datatype::F16;
+    const bool output_half = params.outputs[0].GetDType() == Datatype::F16;
+    const bool plain_half_copy = input_half && output_half && params.mode == MeanSubtractMode::NONE && params.activations.empty() && params.fused_ops.empty();
+    if (!params.engineInfo.supports_fp16 && (input_half || output_half) && !plain_half_copy) {
+        auto replace = [&jit](const JitConstants& constants) {
+            for (const auto& definition : constants.GetDefinitions()) {
+                jit.RemoveConstant(definition.first);
+                jit.AddConstant(MakeJitConstant(definition.first, definition.second));
+            }
+        };
+        replace(MakeUnitTypeJitConstants(Datatype::F32));
+        replace(MakeTypeJitConstants(Datatype::F32, "CALC"));
+        replace({MakeJitConstant("FP16_UNIT_USED", false), MakeJitConstant("FP16_STORAGE", true)});
+        if (input_half) {
+            replace(MakeTypeJitConstants(Datatype::F32, "INPUT_REORDER"));
+            replace({MakeJitConstant("INPUT_REORDER_TYPE", "ushort"),
+                     MakeJitConstant("INPUT_REORDER_TYPE_SIZE", 2),
+                     MakeJitConstant("DECODE_INPUT_REORDER_COMPUTE_TYPE(v)", "FUNC_CALL(storage_half_to_float)(v)")});
+        }
+        if (output_half) {
+            replace(MakeTypeJitConstants(Datatype::F32, "OUTPUT_REORDER"));
+            replace({MakeJitConstant("OUTPUT_REORDER_TYPE", "ushort"),
+                     MakeJitConstant("OUTPUT_REORDER_TYPE_SIZE", 2),
+                     MakeJitConstant("TO_OUTPUT_REORDER_TYPE(v)", "FUNC_CALL(storage_float_to_half)(convert_float(v))"),
+                     MakeJitConstant("TO_OUTPUT_REORDER_TYPE_SAT(v)", "FUNC_CALL(storage_float_to_half)(convert_float(v))")});
+        }
+    }
     if (params.truncate) {
         jit.AddConstant(MakeJitConstant("CONVERT_TRUNCATE", true));
     }
@@ -113,6 +141,10 @@ JitConstants ReorderKernelRef::GetJitConstants(const reorder_params& params) con
 
 KernelsData ReorderKernelRef::GetKernelsData(const Params& params) const {
     const reorder_params& orgParams = static_cast<const reorder_params&>(params);
+    if (!orgParams.engineInfo.supports_fp16 && !orgParams.fused_ops.empty() &&
+        (orgParams.inputs[0].GetDType() == Datatype::F16 || orgParams.outputs[0].GetDType() == Datatype::F16)) {
+        return {};
+    }
     return GetCommonKernelsData(orgParams);
 }
 

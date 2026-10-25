@@ -31,6 +31,7 @@ protected:
         targetDevice = ov::test::utils::DEVICE_GPU;
         const auto& [shape, precision, with_gamma] = GetParam();
         abs_threshold = 0.01;
+        convert_precisions[ov::element::f16] = ov::element::f32;
 
         auto input = std::make_shared<ov::op::v0::Parameter>(precision, shape);
         std::shared_ptr<ov::Node> rms;
