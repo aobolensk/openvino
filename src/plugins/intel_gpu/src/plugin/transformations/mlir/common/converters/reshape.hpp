@@ -54,8 +54,8 @@ struct ConvertReshape {
         auto loc = createLocation(context.context, node);
         auto& builder = context.builder();
         const auto input = context.getInputs(node)[0];
-        return expand ? tensor::ExpandShapeOp::create(builder, loc, dst_type, input, reassociation)
-                      : tensor::CollapseShapeOp::create(builder, loc, dst_type, input, reassociation);
+        return expand ? tensor::ExpandShapeOp::create(builder, loc, dst_type, input, reassociation).getOperation()
+                      : tensor::CollapseShapeOp::create(builder, loc, dst_type, input, reassociation).getOperation();
     }
 };
 
