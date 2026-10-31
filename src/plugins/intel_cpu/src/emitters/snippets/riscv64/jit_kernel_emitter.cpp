@@ -90,12 +90,11 @@ void jit_kernel_emitter::validate_arguments(const std::vector<size_t>& in, const
 void jit_kernel_emitter::emit_impl(const std::vector<size_t>& in,
                                    [[maybe_unused]] const std::vector<size_t>& out) const {
     h->preamble();
-    const auto register_pools =
-        kernel_emitter_utils::make_register_pools(aux_gpr_idxs, aux_vec_idxs, data_ptr_regs_idx);
+    const auto register_pools = make_register_pools(aux_gpr_idxs, aux_vec_idxs, data_ptr_regs_idx);
     auto data_ptr_regs = utils::transform_idxs_to_regs(data_ptr_regs_idx);
-    init_data_pointers(utils::transform_idxs_to_regs(in), data_ptr_regs);
+    init_data_pointers(utils::transform_idxs_to_regs(in), data_ptr_regs, {});
 
-    kernel_emitter_utils::emit_kernel_body<jit_emitter, jit_nop_emitter>(*body, register_pools);
+    emit_kernel_body<jit_emitter, jit_nop_emitter>(*body, register_pools);
 
     h->postamble();
 }

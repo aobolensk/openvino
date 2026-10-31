@@ -21,7 +21,7 @@
 #include "snippets/op/reg_spill.hpp"
 #include "snippets/utils/reg_utils.hpp"
 
-namespace ov::intel_cpu::kernel_emitter_utils {
+namespace ov::intel_cpu {
 
 inline std::set<ov::snippets::Reg> make_register_pool(const std::vector<size_t>& register_idxs,
                                                       ov::snippets::RegType register_type) {
@@ -65,7 +65,7 @@ std::pair<ov::snippets::RegType, ov::snippets::RegType> get_expected_reg_types(
     case in_out_map_t::vec_to_vec:
         return {ov::snippets::RegType::vec, ov::snippets::RegType::vec};
     default:
-        OPENVINO_THROW("Unsupported emitter_in_out_map instance");
+        OV_CPU_JIT_EMITTER_THROW("Unsupported emitter_in_out_map instance");
     }
 }
 
@@ -79,7 +79,7 @@ void emit_kernel_body(const ov::snippets::lowered::LinearIR& body, const Registe
         auto expected_in_type = ov::snippets::RegType::undefined;
         auto expected_out_type = ov::snippets::RegType::undefined;
         const auto& node = expression->get_node();
-        // A few operations can have mixed register types, so skip validation for them.
+        // Skip register type validation for NoopEmitter, LoopEnd, and RegSpillBase expressions.
         if (!ov::is_type_any_of<ov::snippets::op::LoopEnd, ov::snippets::op::RegSpillBase>(node) &&
             !std::dynamic_pointer_cast<NoopEmitter>(emitter)) {
             std::tie(expected_in_type, expected_out_type) = get_expected_reg_types(emitter);
@@ -112,4 +112,4 @@ void emit_kernel_body(const ov::snippets::lowered::LinearIR& body, const Registe
     }
 }
 
-}  // namespace ov::intel_cpu::kernel_emitter_utils
+}  // namespace ov::intel_cpu

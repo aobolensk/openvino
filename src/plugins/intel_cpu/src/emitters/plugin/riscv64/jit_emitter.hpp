@@ -63,12 +63,7 @@ public:
                 ov::element::Type exec_prc = ov::element::f32,
                 emitter_in_out_map in_out_type = emitter_in_out_map::vec_to_vec);
 
-    void emit_code(const std::vector<size_t>& in_idxs,
-                   const std::vector<size_t>& out_idxs,
-                   const std::vector<size_t>& pool_vec_idxs,
-                   const std::vector<size_t>& pool_gpr_idxs) const {
-        emit_code(in_idxs, out_idxs, pool_vec_idxs, pool_gpr_idxs, {});
-    }
+    using ov::snippets::Emitter::emit_code;
 
     // The base method does not support FP registers for code emission.
     virtual void emit_code(const std::vector<size_t>& in_idxs,
