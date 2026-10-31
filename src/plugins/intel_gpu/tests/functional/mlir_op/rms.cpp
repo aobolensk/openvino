@@ -56,6 +56,7 @@ protected:
     void SetUp() override {
         targetDevice = ov::test::utils::DEVICE_GPU;
         abs_threshold = 0.01;
+        convert_precisions[ov::element::f16] = ov::element::f32;
 
         auto input = std::make_shared<ov::op::v0::Parameter>(ov::element::f16, ov::Shape{1, 24, 8, 16});
         auto rms = std::make_shared<ov::op::internal::RMS>(input, 1e-5, ov::element::f16, 1);

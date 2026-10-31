@@ -10,7 +10,7 @@
 #if GC_ENABLE_IGC
 #    include "gc/ExecutionEngine/GPURuntime/GpuOclRuntime.h"
 #endif
-#include "gc/ExecutionEngine/GPURuntime/OclSourceModule.h"
+#include "gc/Runtime/OclSourceModule.h"
 #include "interface/mlir_evaluate_base.hpp"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/IR/BuiltinOps.h"

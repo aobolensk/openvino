@@ -195,10 +195,10 @@ void ScaledAttnLayerGPUMlirTest::SetUp() {
     manager.run_passes(functionRefs);
 
     auto it = std::find_if(inputShapes[1].second.begin(), inputShapes[1].second.end(), [&](const ov::Shape& shape) {
-        return shape[0] >= 128 || shape[2] >= 384 || shape[3] >= 128;
+        return shape[0] >= 128 || shape[shape.size() - 2] >= 384 || shape.back() >= 128;
     });
 
-    bool has_diff_head_size = inputShapes[1].first.begin()[3] != inputShapes[2].first.begin()[3];
+    bool has_diff_head_size = *inputShapes[1].first.rbegin() != *inputShapes[2].first.rbegin();
 
     bool has_long_seq = it != inputShapes[1].second.end();
 
