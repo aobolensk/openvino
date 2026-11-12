@@ -105,6 +105,7 @@ struct device_info {
     bool supports_fp64;                         ///< Does engine support FP64.
     bool supports_fp16_denorms;                 ///< Does engine support denormalized FP16.
     bool supports_khr_subgroups;                ///< Does engine support cl_khr_subgroups extension.
+    bool supports_opencl_c_subgroups;          ///< Does engine support the OpenCL C subgroup feature.
     bool supports_intel_subgroups;              ///< Does engine support cl_intel_subgroups extension.
     bool supports_intel_subgroups_short;        ///< Does engine support cl_intel_subgroups_short extension.
     bool supports_intel_subgroups_char;         ///< Does engine support cl_intel_subgroups_char extension.

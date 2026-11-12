@@ -214,6 +214,7 @@ device_info init_device_info(const ::sycl::device& device, const ::sycl::context
     }
 
     info.supports_khr_subgroups = true; // SYCL 2020 requires subgroups support
+    info.supports_opencl_c_subgroups = false;
     info.supports_intel_subgroups = false; // no corresponding aspect in SYCL
     info.supports_intel_subgroups_short = false; // no corresponding aspect in SYCL
     info.supports_intel_subgroups_char = false; // no corresponding aspect in SYCL

@@ -129,7 +129,7 @@ std::string KernelGenerator::get_build_options(const RuntimeParams& params) cons
         }
     }
 
-    if (device_info.supports_work_group_collective_functions) {
+    if (device_info.supports_work_group_collective_functions || device_info.supports_opencl_c_subgroups) {
         options += " -cl-std=CL3.0";
     } else {
         options += " -cl-std=CL2.0";

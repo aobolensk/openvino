@@ -8,7 +8,7 @@
 #define _sub_group_shuffle(v, c) intel_sub_group_shuffle(v, c)
 #define _sub_group_shuffle_up(c, n, d) intel_sub_group_shuffle_up(c, n, d)
 #define _sub_group_shuffle_down(c, n, d) intel_sub_group_shuffle_down(c, n, d)
-#elif (__OPENCL_C_VERSION__ >= 200)
+#elif defined(OPENCL_SUBGROUPS_SUPPORTED)
 
 // The spec for intel_subgroup_shuffle says that index (c) need not be the same value for all work-items in
 // a subgroup while sub_group_broadcast requires that.

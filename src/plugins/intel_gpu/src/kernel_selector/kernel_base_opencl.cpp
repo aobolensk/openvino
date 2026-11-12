@@ -186,7 +186,7 @@ std::shared_ptr<KernelString> KernelBaseOpenCL::GetKernelString(const std::strin
             }
         }
 
-        if (engine_info.supports_work_group_collective_functions) {
+        if (engine_info.supports_work_group_collective_functions || engine_info.supports_opencl_c_subgroups) {
             kernel_string->options += " -cl-std=CL3.0";
         } else {
             kernel_string->options += " -cl-std=CL2.0";

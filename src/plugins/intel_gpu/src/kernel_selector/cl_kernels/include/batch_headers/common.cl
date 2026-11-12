@@ -10,6 +10,11 @@
 #pragma OPENCL EXTENSION cl_khr_subgroups : enable
 #endif
 
+#if defined(cl_khr_subgroups) || defined(__opencl_c_subgroups) || \
+    (defined(cl_intel_subgroups) && __OPENCL_C_VERSION__ >= 200)
+#define OPENCL_SUBGROUPS_SUPPORTED 1
+#endif
+
 #define __CAT(x, y) x##y
 #define CAT(x, y) __CAT(x, y)
 

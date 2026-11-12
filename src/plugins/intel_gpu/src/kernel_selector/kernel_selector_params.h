@@ -386,6 +386,7 @@ struct EngineInfo {
     bool supports_fp64 = false;
     bool supports_fp16_denorms = false;
     bool supports_khr_subgroups = false;
+    bool supports_opencl_c_subgroups = false;
     bool supports_intel_subgroups = false;
     bool supports_intel_subgroups_short = false;
     bool supports_intel_subgroups_char = false;

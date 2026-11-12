@@ -207,6 +207,19 @@ bool get_imad_support(const cl::Device& device) {
     return false;
 }
 
+bool device_supports_opencl_c_subgroups(const cl::Device& device) {
+#if defined(CL_VERSION_3_0)
+    try {
+        const auto features = device.getInfo<CL_DEVICE_OPENCL_C_FEATURES>();
+        return std::any_of(features.begin(), features.end(), [](const cl_name_version& feature) {
+            return std::string(feature.name) == "__opencl_c_subgroups";
+        });
+    } catch (const cl::Error&) {
+    }
+#endif
+    return false;
+}
+
 device_info init_device_info(const cl::Device& device, const cl::Context& context) {
     device_info info = {};
     info.vendor_id = static_cast<uint32_t>(device.getInfo<CL_DEVICE_VENDOR_ID>());
@@ -254,6 +267,7 @@ device_info init_device_info(const cl::Device& device, const cl::Context& contex
     info.supports_fp16_denorms = info.supports_fp16 && (device.getInfo<CL_DEVICE_HALF_FP_CONFIG>() & CL_FP_DENORM) != 0;
 
     info.supports_khr_subgroups = extensions.find("cl_khr_subgroups ") != std::string::npos;
+    info.supports_opencl_c_subgroups = device_supports_opencl_c_subgroups(device);
     info.supports_intel_subgroups = extensions.find("cl_intel_subgroups ") != std::string::npos;
     info.supports_intel_subgroups_short = extensions.find("cl_intel_subgroups_short ") != std::string::npos;
     info.supports_intel_subgroups_char = extensions.find("cl_intel_subgroups_char ") != std::string::npos;

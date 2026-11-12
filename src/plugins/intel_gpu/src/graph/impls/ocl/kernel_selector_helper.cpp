@@ -1311,6 +1311,7 @@ void set_params(const kernel_impl_params& param_info, kernel_selector::params& p
     params.engineInfo.supports_fp64 = device_info.supports_fp64;
     params.engineInfo.supports_fp16_denorms = device_info.supports_fp16_denorms;
     params.engineInfo.supports_khr_subgroups = device_info.supports_khr_subgroups;
+    params.engineInfo.supports_opencl_c_subgroups = device_info.supports_opencl_c_subgroups;
     params.engineInfo.supports_intel_subgroups = device_info.supports_intel_subgroups;
     params.engineInfo.supports_intel_subgroups_short = device_info.supports_intel_subgroups_short;
     params.engineInfo.supports_intel_subgroups_char = device_info.supports_intel_subgroups_char;

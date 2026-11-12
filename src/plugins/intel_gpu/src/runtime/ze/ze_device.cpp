@@ -235,6 +235,7 @@ device_info init_device_info(ze_driver_handle_t driver, ze_device_handle_t devic
     info.supports_work_group_collective_functions = false;
     info.supports_intel_planar_yuv = false;
     info.supports_khr_subgroups = true;
+    info.supports_opencl_c_subgroups = false;
     info.supports_intel_subgroups = true;
     info.supports_intel_subgroups_short = true;
     info.supports_intel_subgroups_char = true;
