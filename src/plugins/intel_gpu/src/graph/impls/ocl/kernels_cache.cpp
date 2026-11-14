@@ -249,7 +249,7 @@ void kernels_cache::get_program_source(const kernels_code& kernels_source_code, 
             // Add -g -s to build options to allow IGC assembly dumper to associate assembler sources with corresponding OpenCL kernel code lines
             // Should be used with the IGC_ShaderDump option
             // Note: Skip adding -g -s for CM kernels as these options are not supported by CM compiler
-            if (!dump_sources_dir.empty() && b.language != kernel_language::CM) {
+            if (!dump_sources_dir.empty() && b.language != kernel_language::CM && _device->get_info().vendor_id == INTEL_VENDOR_ID) {
                 std::string current_dump_file_name = std::move(dump_sources_dir);
                 if (!current_dump_file_name.empty() && current_dump_file_name.back() != '/')
                     current_dump_file_name += '/';
