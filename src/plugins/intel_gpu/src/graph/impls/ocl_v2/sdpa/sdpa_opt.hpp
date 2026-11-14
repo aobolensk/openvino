@@ -77,6 +77,10 @@ struct SDPAOpt : public ImplementationManager {
         const bool combine_scales_and_zp = desc->quantization_attributes.output_storage_type != ov::op::internal::DynamicQuantize::OutputStorageType::Planar;
 
         auto p = node.get_kernel_impl_params();
+        const auto& dev_info = p->get_device_info();
+        if (!dev_info.supports_khr_subgroups && !dev_info.supports_intel_subgroups) {
+            return false;
+        }
         if (has_per_channel_compressed_kv(*p) && !supports_micro_sdpa(*p)) {
             return false;
         }
