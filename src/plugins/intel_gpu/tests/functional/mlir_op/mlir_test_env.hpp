@@ -36,6 +36,7 @@ struct MlirMatchAllEnv {
     ~MlirMatchAllEnv() {
         if (m_owned) {
 #ifdef _WIN32
+            // An empty value removes the variable on Windows.
             _putenv_s("OV_GPU_MLIR_PATTERNS", "");
 #else
             unsetenv("OV_GPU_MLIR_PATTERNS");
