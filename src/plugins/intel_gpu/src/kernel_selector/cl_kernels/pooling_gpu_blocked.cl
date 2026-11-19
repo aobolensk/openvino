@@ -110,7 +110,7 @@ KERNEL(pooling_gpu_blocked)(
     ACCUMULATOR_VAR_TYPE scale;
 #if X_BLOCK_SIZE > 1
     for (int i = 0; i < X_BLOCK_SIZE; i++)
-        scale[i] = _sub_group_shuffle(count, i);
+        ((__private ACCUMULATOR_TYPE*)&scale)[i] = _sub_group_shuffle(count, i);
 #else
     scale = _sub_group_shuffle(count, 0);
 #endif
@@ -140,7 +140,7 @@ KERNEL(pooling_gpu_blocked)(
             ACCUMULATOR_VAR_TYPE src;
 #if X_BLOCK_SIZE > 1
             for (int i = 0; i < X_BLOCK_SIZE; i++) {
-                src[i] = TO_ACCUMULATOR_TYPE(line_cache[kw + STRIDE_SIZE_X*i]);
+                ((__private ACCUMULATOR_TYPE*)&src)[i] = TO_ACCUMULATOR_TYPE(line_cache[kw + STRIDE_SIZE_X*i]);
             }
 #else
             src = TO_ACCUMULATOR_VAR_TYPE(line_cache[kw]);
@@ -161,12 +161,12 @@ KERNEL(pooling_gpu_blocked)(
 #if X_BLOCK_SIZE > 1
             for (int i = 0; i < X_BLOCK_SIZE; i++) {
                 if ((input_x + kw + STRIDE_SIZE_X*i) >= 0 && (input_x + kw + STRIDE_SIZE_X*i) < INPUT0_SIZE_X)
-                    src[i] = DT_INPUT_BLOCK_READ(input, input_offset + kh*input_y_pitch + (kw + STRIDE_SIZE_X*i)*input_x_pitch);
+                    ((__private INPUT0_TYPE*)&src)[i] = DT_INPUT_BLOCK_READ(input, input_offset + kh*input_y_pitch + (kw + STRIDE_SIZE_X*i)*input_x_pitch);
                 else
                     #if defined MAX_POOLING
-                        src[i] = INPUT0_VAL_MIN;
+                        ((__private INPUT0_TYPE*)&src)[i] = INPUT0_VAL_MIN;
                     #elif defined AVG_POOLING
-                        src[i] = INPUT0_VAL_ZERO;
+                        ((__private INPUT0_TYPE*)&src)[i] = INPUT0_VAL_ZERO;
                     #endif
             }
 #else
@@ -202,12 +202,15 @@ KERNEL(pooling_gpu_blocked)(
             if ((f_block*FEATURE_SLICE_SIZE + f_val*SUB_GROUP_SIZE + lid < OUTPUT_FEATURE_NUM) && (x + i) < OUTPUT_SIZE_X) {
 #if X_BLOCK_SIZE > 1
             #if HAS_FUSED_OPS
+                const __private ACTIVATION_TYPE* pool_result_s = (const __private ACTIVATION_TYPE*)&pool_result;
+#define pool_result pool_result_s
                 FUSED_OPS_SCALAR;
-                final_result[i] = FUSED_OPS_RESULT_SCALAR;
+#undef pool_result
+                ((__private OUTPUT_TYPE*)&final_result)[i] = FUSED_OPS_RESULT_SCALAR;
             #else
-                final_result[i] = TO_OUTPUT_TYPE(pool_result[i]);
+                ((__private OUTPUT_TYPE*)&final_result)[i] = TO_OUTPUT_TYPE(((__private ACTIVATION_TYPE*)&pool_result)[i]);
             #endif
-                output[output_offset + i * output_x_pitch + lid] = final_result[i];
+                output[output_offset + i * output_x_pitch + lid] = ((__private OUTPUT_TYPE*)&final_result)[i];
 #else
             #if HAS_FUSED_OPS
                 FUSED_OPS_VEC;
@@ -245,7 +248,7 @@ KERNEL(pooling_gpu_blocked)(
     #if X_BLOCK_SIZE > 1
         __attribute__((opencl_unroll_hint(X_BLOCK_SIZE)))
         for (int i = 0; i < X_BLOCK_SIZE; i++) {
-            DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, final_result[i]);
+            DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, ((__private OUTPUT_TYPE*)&final_result)[i]);
         }
     #else
         DT_OUTPUT_BLOCK_WRITE(output, output_offset, final_result);
@@ -258,12 +261,15 @@ KERNEL(pooling_gpu_blocked)(
         for (int i = 0; i < x_tail; i++){
 #if X_BLOCK_SIZE > 1
         #if HAS_FUSED_OPS
+            const __private ACTIVATION_TYPE* pool_result_s = (const __private ACTIVATION_TYPE*)&pool_result;
+#define pool_result pool_result_s
             FUSED_OPS_SCALAR;
-            final_result[i] = FUSED_OPS_RESULT_SCALAR;
+#undef pool_result
+            ((__private OUTPUT_TYPE*)&final_result)[i] = FUSED_OPS_RESULT_SCALAR;
         #else
-            final_result[i] = TO_OUTPUT_TYPE(pool_result[i]);
+            ((__private OUTPUT_TYPE*)&final_result)[i] = TO_OUTPUT_TYPE(((__private ACTIVATION_TYPE*)&pool_result)[i]);
         #endif
-            DT_OUTPUT_BLOCK_WRITE(output, output_offset + i*output_x_pitch, final_result[i]);
+            DT_OUTPUT_BLOCK_WRITE(output, output_offset + i*output_x_pitch, ((__private OUTPUT_TYPE*)&final_result)[i]);
 #else
         #if HAS_FUSED_OPS
             FUSED_OPS_VEC;

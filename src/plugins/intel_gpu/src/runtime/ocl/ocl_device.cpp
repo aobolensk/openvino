@@ -233,6 +233,8 @@ device_info init_device_info(const cl::Device& device, const cl::Context& contex
     constexpr int nvidia_vendor_id = 0x10DE;
     if (info.vendor_id == nvidia_vendor_id) {
         info.max_work_group_size = 64;
+    } else if (info.vendor_id != INTEL_VENDOR_ID) {
+        info.max_work_group_size = std::min<uint64_t>(info.max_work_group_size, 256);
     }
 
     info.max_local_mem_size = static_cast<uint64_t>(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>());

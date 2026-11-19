@@ -1163,9 +1163,12 @@ void TransformationsPipeline::apply(std::shared_ptr<ov::Model> func) {
         }
 
         pass_config->set_callback<ov::pass::ScaledDotProductAttentionDecomposition>([&](const std::shared_ptr<const ov::Node> node){
-            // Never decompose if mlir-path is enabled
+            // Never decompose if mlir-path is enabled and targets ScaledDotProductAttention
             if (GPU_DEBUG_VALUE_OR(ExecutionConfig::get_enable_mlir(), false)) {
-                return true;
+                const auto patterns = GPU_DEBUG_VALUE_OR(config.get_mlir_patterns(), std::string{});
+                if (patterns.empty() || patterns == "*" || patterns.find("ScaledDotProductAttention") != std::string::npos) {
+                    return true;
+                }
             }
 
             if (!config.get_enable_sdpa_optimization())

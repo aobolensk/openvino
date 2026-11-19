@@ -277,7 +277,7 @@ KERNEL(gemm_tiled_opt)(
                 #else
                 unroll_for(uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
                     uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x + sglid + SIMD_WIDTH * b_elem, beam_table);
-                    b_tile[b_load_id][b_elem] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
+                    ((__private INPUT1_TYPE*)&b_tile[b_load_id])[b_elem] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
                 }
                 #endif
             }
@@ -291,7 +291,7 @@ KERNEL(gemm_tiled_opt)(
                         b_tile[b_load_id] = BLOCK_READ_B(b_ptr, 0);
                     } else {
                         unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
-                            b_tile[b_load_id][b_elem] = (b_raw_global_id + SIMD_WIDTH * b_elem >= N) ? 0 : b_ptr[sglid + SIMD_WIDTH * b_elem];
+                            ((__private INPUT1_TYPE*)&b_tile[b_load_id])[b_elem] = (b_raw_global_id + SIMD_WIDTH * b_elem >= N) ? 0 : b_ptr[sglid + SIMD_WIDTH * b_elem];
                         }
                     }
                 #endif // B_VEC_SIZE == 1
@@ -368,14 +368,14 @@ KERNEL(gemm_tiled_opt)(
             unroll_for (uint b_load_id = 0; b_load_id < TILE_K; b_load_id++) {
                 uint b_load_offset = (k * TILE_K) + b_load_id;
                 uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x, beam_table);
-                b_tile[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
+                ((__private INPUT1_TYPE*)&b_tile)[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
             }
         #else
            unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
                 unroll_for (uint b_load_id = 0; b_load_id < TILE_K; b_load_id++) {
                     uint b_load_offset = k * TILE_K + b_load_id;
                     uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x + sglid + SIMD_WIDTH * b_elem, beam_table);
-                    b_tile[b_elem][b_load_id] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
+                    ((__private INPUT1_TYPE*)&b_tile[b_elem])[b_load_id] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
                 }
             }
         #endif
@@ -428,17 +428,17 @@ KERNEL(gemm_tiled_opt)(
             unroll_for (uint subtile_k_id = 0; subtile_k_id < TILE_K / SIMD_WIDTH; subtile_k_id++) {
                 unroll_for (uint simd_local_id = 0; simd_local_id < SIMD_WIDTH; simd_local_id++) {
     #if TILE_K > SIMD_WIDTH
-                    c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read[subtile_k_id], simd_local_id)),
+                    c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(((__private INPUT0_TYPE*)&a_read)[subtile_k_id], simd_local_id)),
                                          ACC_CAST_B(b_tile[subtile_k_id * SIMD_WIDTH + simd_local_id]), c_tile[dot_id]);
     #else // TILE_K > SIMD_WIDTH
                 #if B_VEC_SIZE > 1 && TRANSPOSE_INPUT1 == TRANSPOSE_Y_LAST
                     MAKE_VECTOR_TYPE(INPUT1_TYPE, B_VEC_SIZE) b_tile_tmp;
                     unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
-                        b_tile_tmp[b_elem] = b_tile[b_elem][simd_local_id];
+                        ((__private INPUT1_TYPE*)&b_tile_tmp)[b_elem] = ((__private INPUT1_TYPE*)&b_tile[b_elem])[simd_local_id];
                     }
                     c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_local_id)), ACC_CAST_B(b_tile_tmp), c_tile[dot_id]);
                 #else
-                    c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_local_id)), ACC_CAST_B(b_tile[simd_local_id]), c_tile[dot_id]);
+                    c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_local_id)), ACC_CAST_B(((__private B_FLOATN*)&b_tile)[simd_local_id]), c_tile[dot_id]);
                 #endif
     #endif // TILE_K > SIMD_WIDTH
                 }
@@ -453,7 +453,7 @@ KERNEL(gemm_tiled_opt)(
     #else
             uint a_idx = FUNC_CALL(get_input0_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, (y + dot_id), (k * TILE_K + sglid));
     #endif
-            a_tile[dot_id] = input0[a_idx];
+            ((__private INPUT0_TYPE*)&a_tile)[dot_id] = input0[a_idx];
 #endif // TRANSPOSE_INPUT0
         } // Loading A tile and tile C calculation end
 
@@ -464,7 +464,7 @@ KERNEL(gemm_tiled_opt)(
         #if INDIRECT_INPUT0
             unroll_for (uint a_load_id = 0; a_load_id < SIMD_WIDTH; a_load_id++) {
                 uint a_idx = FUNC_CALL(get_input0_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, (y + a_load_id), (k * TILE_K + sglid), beam_table);
-                a_tile[a_load_id] = input0[a_idx];
+                ((__private INPUT0_TYPE*)&a_tile)[a_load_id] = input0[a_idx];
             }
         #else
             a_ptr = a_ptr + (input0_offset * sglid);
@@ -478,11 +478,11 @@ KERNEL(gemm_tiled_opt)(
             #if B_VEC_SIZE > 1 && TRANSPOSE_INPUT1 == TRANSPOSE_Y_LAST
                 MAKE_VECTOR_TYPE(INPUT1_TYPE, B_VEC_SIZE) b_tile_tmp;
                 unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
-                    b_tile_tmp[b_elem] = b_tile[b_elem][simd_local_id];
+                    ((__private INPUT1_TYPE*)&b_tile_tmp)[b_elem] = ((__private INPUT1_TYPE*)&b_tile[b_elem])[simd_local_id];
                 }
-                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_tile[dot_id], simd_local_id)), ACC_CAST_B(b_tile_tmp), c_tile[dot_id]);
+                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(((__private INPUT0_TYPE*)&a_tile)[dot_id], simd_local_id)), ACC_CAST_B(b_tile_tmp), c_tile[dot_id]);
             #else
-                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_tile[dot_id], simd_local_id)), ACC_CAST_B(b_tile[simd_local_id]), c_tile[dot_id]);
+                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(((__private INPUT0_TYPE*)&a_tile)[dot_id], simd_local_id)), ACC_CAST_B(((__private B_FLOATN*)&b_tile)[simd_local_id]), c_tile[dot_id]);
             #endif
             }
         } // Tile C calculation for TN, TT cases end
@@ -518,7 +518,7 @@ KERNEL(gemm_tiled_opt)(
                 #else
                     unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
                         uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x + sglid + SIMD_WIDTH * b_elem, beam_table);
-                        b_tile[b_load_id][b_elem] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
+                        ((__private INPUT1_TYPE*)&b_tile[b_load_id])[b_elem] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
                     }
                 #endif
                 }
@@ -532,7 +532,7 @@ KERNEL(gemm_tiled_opt)(
                         b_tile[b_load_id] = BLOCK_READ_B(b_ptr, 0);
                     } else {
                         unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
-                            b_tile[b_load_id][b_elem] = (b_raw_global_id + SIMD_WIDTH * b_elem >= N) ? 0 : b_ptr[sglid + SIMD_WIDTH * b_elem];
+                            ((__private INPUT1_TYPE*)&b_tile[b_load_id])[b_elem] = (b_raw_global_id + SIMD_WIDTH * b_elem >= N) ? 0 : b_ptr[sglid + SIMD_WIDTH * b_elem];
                         }
                     }
                 #endif // B_VEC_SIZE == 1
@@ -566,14 +566,14 @@ KERNEL(gemm_tiled_opt)(
                     unroll_for (uint b_load_id = 0; b_load_id < TILE_K; b_load_id++) {
                         uint b_load_offset = (K_FULL_ITERATIONS * TILE_K) + b_load_id;
                         uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x, beam_table);
-                        b_tile[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
+                        ((__private INPUT1_TYPE*)&b_tile)[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
                     }
                 #else
                     unroll_for (uint b_elem = 0; b_elem < B_VEC_SIZE; ++b_elem) {
                         unroll_for (uint b_load_id = 0; b_load_id < TILE_K; b_load_id++) {
                             uint b_load_offset = (K_FULL_ITERATIONS * TILE_K) + b_load_id;
                             uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x + sglid + SIMD_WIDTH * b_elem, beam_table);
-                            b_tile[b_elem][b_load_id] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
+                            ((__private INPUT1_TYPE*)&b_tile[b_elem])[b_load_id] = b_raw_global_id + SIMD_WIDTH * b_elem >= N ? 0 : input1[b_idx];
                         }
                     }
                 #endif
@@ -587,7 +587,7 @@ KERNEL(gemm_tiled_opt)(
                         b_tile = VLOAD(0, b_ptr);
                     } else if (N > b_raw_global_id) {
                         unroll_for (uint b_load_id = 0; b_load_id < SIMD_WIDTH; b_load_id++) {
-                            b_tile[b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K) ? b_ptr[b_load_id] : 0;
+                            ((__private INPUT1_TYPE*)&b_tile)[b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K) ? b_ptr[b_load_id] : 0;
                         }
                     } else {
                         b_tile = 0;
@@ -599,7 +599,7 @@ KERNEL(gemm_tiled_opt)(
                             b_tile[b_elem] = VLOAD(0, b_ptr_tmp + input1_offset * SIMD_WIDTH * b_elem);
                         } else if (N > b_raw_global_id + SIMD_WIDTH * b_elem) {
                             unroll_for (uint b_load_id = 0; b_load_id < SIMD_WIDTH; b_load_id++) {
-                                b_tile[b_elem][b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K)
+                                ((__private INPUT1_TYPE*)&b_tile[b_elem])[b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K)
                                                                 ? b_ptr_tmp[input1_offset * SIMD_WIDTH * b_elem + b_load_id] : 0;
                             }
                         } else {
@@ -624,13 +624,13 @@ KERNEL(gemm_tiled_opt)(
             unroll_for (uint simd_id = 0; simd_id < TILE_K_LEFTOVER; simd_id++) {
             #if B_VEC_SIZE > 1
                 #if TRANSPOSE_INPUT1 == TRANSPOSE_Y_LAST
-                MAKE_VECTOR_TYPE(INPUT1_TYPE, B_VEC_SIZE) b_tile_tmp = {b_tile[0][simd_id], b_tile[1][simd_id]};
+                MAKE_VECTOR_TYPE(INPUT1_TYPE, B_VEC_SIZE) b_tile_tmp = {((__private INPUT1_TYPE*)&b_tile[0])[simd_id], ((__private INPUT1_TYPE*)&b_tile[1])[simd_id]};
                     c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(b_tile_tmp), c_tile[dot_id]);
                 #else
                     c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(b_tile[simd_id]), c_tile[dot_id]);
                 #endif
             #else
-                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(b_tile[simd_id]), c_tile[dot_id]);
+                c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(((__private INPUT1_TYPE*)&b_tile)[simd_id]), c_tile[dot_id]);
             #endif
             }
         } // Loading leftovers of the matrix A and tile C calculation end
@@ -695,7 +695,7 @@ KERNEL(gemm_tiled_opt)(
              unroll_for (uint b_load_id = 0; b_load_id < TILE_K; b_load_id++) {
                  uint b_load_offset = (K_FULL_ITERATIONS * TILE_K) + b_load_id;
                  uint b_idx = FUNC_CALL(get_input1_indirect_index)(OPTIONAL_SHAPE_INFO_TENSOR b, f, w, z, b_load_offset, x, beam_table);
-                 b_tile[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
+                 ((__private INPUT1_TYPE*)&b_tile)[b_load_id] = b_raw_global_id >= N ? 0 : input1[b_idx];
              }
          }
          else
@@ -706,7 +706,7 @@ KERNEL(gemm_tiled_opt)(
                  b_tile = VLOAD(0, b_ptr);
              } else if (N > b_raw_global_id) {
                  unroll_for (uint b_load_id = 0; b_load_id < SIMD_WIDTH; b_load_id++) {
-                     b_tile[b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K) ? b_ptr[b_load_id] : 0;
+                     ((__private INPUT1_TYPE*)&b_tile)[b_load_id] = ((K_FULL_ITERATIONS * TILE_K + b_load_id) < K) ? b_ptr[b_load_id] : 0;
                  }
              } else {
                  b_tile = 0;
@@ -736,7 +736,7 @@ KERNEL(gemm_tiled_opt)(
 #endif
 #endif // INDIRECT_INPUT0
         unroll_for (uint simd_id = 0; simd_id < TILE_K_LEFTOVER; simd_id++) {
-            c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(b_tile[simd_id]), c_tile[dot_id]);
+            c_tile[dot_id] = mad(ACC_CAST_A(sub_group_broadcast(a_read, simd_id)), ACC_CAST_B(((__private B_FLOATN*)&b_tile)[simd_id]), c_tile[dot_id]);
         }
     } // Loading leftovers of the matrix A and tile C calculation end
 #endif // IS_DYNAMIC
@@ -798,15 +798,15 @@ KERNEL(gemm_tiled_opt)(
         #ifdef FUSE_SCALAR
         OUTPUT_TYPE_VEC result;
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
-            ACCUMULATOR_TYPE dequantized_scalar = dequantized[n_elem];
+            ACCUMULATOR_TYPE dequantized_scalar = ((__private ACCUMULATOR_TYPE*)&dequantized)[n_elem];
             uint xs = b_raw_global_id + SIMD_WIDTH * n_elem;
             FUSED_OPS_SCALAR;
-            result[n_elem] = FUSED_OPS_RESULT_SCALAR;
+            ((__private OUTPUT_TYPE*)&result)[n_elem] = FUSED_OPS_RESULT_SCALAR;
         }
 
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
             if (b_raw_global_id + SIMD_WIDTH * n_elem < N) {
-                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = result[n_elem];
+                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = ((__private OUTPUT_TYPE*)&result)[n_elem];
             }
         }
         #else // fuse vec
@@ -814,14 +814,14 @@ KERNEL(gemm_tiled_opt)(
         OUTPUT_TYPE_VEC result = FUSED_OPS_RESULT_VEC;
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
             if (b_raw_global_id + SIMD_WIDTH * n_elem < N) {
-                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = result[n_elem];
+                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = ((__private OUTPUT_TYPE*)&result)[n_elem];
             }
         }
         #endif // FUSE_SCALAR
         #else
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
             if (b_raw_global_id + SIMD_WIDTH * n_elem < N) {
-                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = dequantized[n_elem];
+                *(d_ptr_tmp + SIMD_WIDTH * n_elem * x_pitch) = ((__private ACCUMULATOR_TYPE*)&dequantized)[n_elem];
             }
         }
         #endif // HAS_FUSED_OPS
@@ -871,11 +871,11 @@ KERNEL(gemm_tiled_opt)(
             #endif // FUSED_OPS_CAN_USE_PRELOAD
         OUTPUT_TYPE_VEC res = FUSED_OPS_RESULT_VEC;
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
-            BLOCK_WRITEN(OUTPUT_TYPE, 1, d_ptr, SIMD_WIDTH * n_elem * output_x_pitch, res[n_elem]);
+            BLOCK_WRITEN(OUTPUT_TYPE, 1, d_ptr, SIMD_WIDTH * n_elem * output_x_pitch, ((__private OUTPUT_TYPE*)&res)[n_elem]);
         }
         #else // HAS_FUSED_OPS
         unroll_for (uint n_elem = 0; n_elem < B_VEC_SIZE; ++n_elem) {
-            BLOCK_WRITEN(OUTPUT_TYPE, 1, d_ptr, SIMD_WIDTH * n_elem * output_x_pitch, dequantized[n_elem]);
+            BLOCK_WRITEN(OUTPUT_TYPE, 1, d_ptr, SIMD_WIDTH * n_elem * output_x_pitch, ((__private ACCUMULATOR_TYPE*)&dequantized)[n_elem]);
         }
         #endif // HAS_FUSED_OPS
     #endif // TILE_N_NOT_DIVISIBLE || B_VEC_SIZE == 1
