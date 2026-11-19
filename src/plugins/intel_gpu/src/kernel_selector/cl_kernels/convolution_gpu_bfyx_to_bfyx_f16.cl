@@ -123,7 +123,7 @@ KERNEL(convolution_gpu_bfyx_to_bfyx_f16)(
                 __attribute__((opencl_unroll_hint(INPUT0_FEATURE_NUM)))
                 for (int ic = 0; ic < INPUT0_FEATURE_NUM; ic++) {
                     src[ic] = _sub_group_shuffle(line_cache[ic * INPUT_BLOCK_SIZE + buf_offset], buf_group);
-                    dst[i] = mad(wei[ic], src[ic], dst[i]);
+                    ((__private INPUT0_TYPE*)&dst)[i] = mad(wei[ic], src[ic], ((__private INPUT0_TYPE*)&dst)[i]);
                 }
             }
         }
@@ -144,11 +144,14 @@ KERNEL(convolution_gpu_bfyx_to_bfyx_f16)(
     if ((f_block+1)*FEATURE_SLICE_SIZE >= OUTPUT_FEATURE_NUM) {
         for (int i = 0; i < OUTPUT_X_BLOCK_SIZE; i++) {
 #if HAS_FUSED_OPS
+            const __private INPUT0_TYPE* dst_s = (const __private INPUT0_TYPE*)&dst;
+#define dst dst_s
             FUSED_OPS_SCALAR;
-            res[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+            ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #endif
             if ((f_block*FEATURE_SLICE_SIZE + lid < OUTPUT_FEATURE_NUM) && (x + i) < OUTPUT_SIZE_X)
-                output[output_offset + i * output_x_pitch + lid] = res[i];
+                output[output_offset + i * output_x_pitch + lid] = ((__private OUTPUT_TYPE*)&res)[i];
         }
     }
     else
@@ -164,10 +167,13 @@ KERNEL(convolution_gpu_bfyx_to_bfyx_f16)(
             const int x_tail = OUTPUT_SIZE_X % OUTPUT_X_BLOCK_SIZE;
             for (int i = 0; i < x_tail; i++) {
 #if HAS_FUSED_OPS
+                const __private INPUT0_TYPE* dst_s = (const __private INPUT0_TYPE*)&dst;
+#define dst dst_s
                 FUSED_OPS_SCALAR;
-                res[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+                ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #endif
-                DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, res[i]);
+                DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, ((__private OUTPUT_TYPE*)&res)[i]);
             }
         }
     }

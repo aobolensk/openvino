@@ -3,34 +3,34 @@
 //
 
 inline int imad_SW(int acc, uchar4 input, char4 weight) __attribute__((overloadable)) {
-    acc += input[0] * weight[0];
-    acc += input[1] * weight[1];
-    acc += input[2] * weight[2];
-    acc += input[3] * weight[3];
+    acc += input.s0 * weight.s0;
+    acc += input.s1 * weight.s1;
+    acc += input.s2 * weight.s2;
+    acc += input.s3 * weight.s3;
     return acc;
 }
 
 inline int imad_SW(int acc, char4 input, char4 weight) __attribute__((overloadable)) {
-    acc += input[0] * weight[0];
-    acc += input[1] * weight[1];
-    acc += input[2] * weight[2];
-    acc += input[3] * weight[3];
+    acc += input.s0 * weight.s0;
+    acc += input.s1 * weight.s1;
+    acc += input.s2 * weight.s2;
+    acc += input.s3 * weight.s3;
     return acc;
 }
 
 inline int imad_SW(int acc, char4 input, uchar4 weight) __attribute__((overloadable)) {
-    acc += input[0] * weight[0];
-    acc += input[1] * weight[1];
-    acc += input[2] * weight[2];
-    acc += input[3] * weight[3];
+    acc += input.s0 * weight.s0;
+    acc += input.s1 * weight.s1;
+    acc += input.s2 * weight.s2;
+    acc += input.s3 * weight.s3;
     return acc;
 }
 
 inline int imad_SW(int acc, uchar4 input, uchar4 weight) __attribute__((overloadable)) {
-    acc += input[0] * weight[0];
-    acc += input[1] * weight[1];
-    acc += input[2] * weight[2];
-    acc += input[3] * weight[3];
+    acc += input.s0 * weight.s0;
+    acc += input.s1 * weight.s1;
+    acc += input.s2 * weight.s2;
+    acc += input.s3 * weight.s3;
     return acc;
 }
 

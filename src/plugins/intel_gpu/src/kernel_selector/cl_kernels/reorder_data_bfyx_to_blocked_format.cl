@@ -23,7 +23,7 @@
                                         INPUTVTYPE read_data = AS_INPUTVTYPE(VLOAD(0, input + input_idx)); \
                                         unroll_for (uint lw = 0; lw < inner; ++lw) { \
                                             const uint dst = local_buf_offset + lw; \
-                                            transpose_buf[dst][lh] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(read_data[lw])); \
+                                            ((__local OUTPUT_TYPE*)&transpose_buf[dst])[lh] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&read_data)[lw])); \
                                         } \
                                     }
 
@@ -31,11 +31,11 @@
                                         const uint input_idx = INPUT0_GET_TILED_INDEX(INPUT0_TILED_ORDER); \
                                         INPUTVTYPE read_data; \
                                         unroll_for (uint lw = 0; lw < inner; ++lw) { \
-                                            read_data[lw] = input[input_idx + lw]; \
+                                            ((__private INPUT0_TYPE*)&read_data)[lw] = input[input_idx + lw]; \
                                         } \
                                         unroll_for (uint lw = 0; lw < inner; ++lw) { \
                                             const uint dst = local_buf_offset + lw; \
-                                            transpose_buf[dst][lh] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(read_data[lw])); \
+                                            ((__local OUTPUT_TYPE*)&transpose_buf[dst])[lh] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&read_data)[lw])); \
                                         } \
                                     }
 
@@ -47,7 +47,7 @@
 #define FUNC_WRITE(inner, outer)    unroll_for (uint lw = 0; lw < outer; ++lw) { \
                                         const uint output_idx = output_idx_tile + (lw * x_pitch); \
                                         unroll_for (uint i = 0; i < inner; ++i) { \
-                                            output[output_idx + i] = TO_OUTPUT_TYPE(ACTIVATION(DECODE_OUTPUT_COMPUTE_TYPE(transpose_buf[local_buf_offset + lw][i]), ACTIVATION_PARAMS)); \
+                                            output[output_idx + i] = TO_OUTPUT_TYPE(ACTIVATION(DECODE_OUTPUT_COMPUTE_TYPE(((__local OUTPUT_TYPE*)&transpose_buf[local_buf_offset + lw])[i]), ACTIVATION_PARAMS)); \
                                         } \
                                     }
 

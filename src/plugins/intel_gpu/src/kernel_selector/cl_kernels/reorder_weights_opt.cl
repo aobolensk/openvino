@@ -128,17 +128,22 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
     val = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
 #endif
 #else
-    OUTPUT_VEC_TYPE val = 0;
+    union {
+        OUTPUT_VEC_TYPE vec;
+        OUTPUT_TYPE arr[SECOND_BLOCK_SIZE];
+    } val_u;
+    val_u.vec = 0;
     unroll_for (int b = 0; b < SECOND_BLOCK_SIZE; b++) {
 #if defined(IFM_PADDING) && OSV_FIRST
         if (valid_lane && (i + b) < ACTUAL_IFM_NUM) {
-            val[b] = TO_OUTPUT_TYPE(input[input_idx]);
+            val_u.arr[b] = TO_OUTPUT_TYPE(input[input_idx]);
         }
 #else
-        val[b] = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
+        val_u.arr[b] = valid_lane ? TO_OUTPUT_TYPE(input[input_idx]) : OUTPUT_VAL_ZERO;
 #endif
         input_idx += PITCH;
     }
+    OUTPUT_VEC_TYPE val = val_u.vec;
 #endif  // SECOND_BLOCK_SIZE == 1
 #if OUTPUT_LEFTOVERS
 #if OSV_FIRST
@@ -149,7 +154,7 @@ KERNEL(reorder_weights_opt)(const __global INPUT0_TYPE* input, __global OUTPUT_T
 #if SECOND_BLOCK_SIZE > 1
         unroll_for(int b = 0; b < SECOND_BLOCK_SIZE; b++)
             if (valid_lane)
-                output[output_idx + b * SECOND_SIZE + lid] = val[b];
+                output[output_idx + b * SECOND_SIZE + lid] = val_u.arr[b];
 #else
             if (valid_lane)
                 output[output_idx + lid] = val;

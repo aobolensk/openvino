@@ -100,9 +100,9 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
         src_block_2 = (INPUT_TYPE8)(INPUT0_VAL_ZERO);
         unroll_for (int i = 0; i < 8; i++) {
             if (i < src_line_avail) {
-                src_block_0[i] = DT_INPUT_BLOCK_READ(input, src_line_0 + i * input_x_pitch);
-                src_block_1[i] = DT_INPUT_BLOCK_READ(input, src_line_1 + i * input_x_pitch);
-                src_block_2[i] = DT_INPUT_BLOCK_READ(input, src_line_2 + i * input_x_pitch);
+                ((__private INPUT_TYPE*)&src_block_0)[i] = DT_INPUT_BLOCK_READ(input, src_line_0 + i * input_x_pitch);
+                ((__private INPUT_TYPE*)&src_block_1)[i] = DT_INPUT_BLOCK_READ(input, src_line_1 + i * input_x_pitch);
+                ((__private INPUT_TYPE*)&src_block_2)[i] = DT_INPUT_BLOCK_READ(input, src_line_2 + i * input_x_pitch);
             }
         }
     }
@@ -131,56 +131,56 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
 #if X_BLOCK_SIZE == 8
     for (uint i = 0; i < X_BLOCK_SIZE - 2; i++)
     {
-        dst[i] = mad(src_block_0[i + 0], wei_00, dst[i]);
-        dst[i] = mad(src_block_0[i + 1], wei_01, dst[i]);
-        dst[i] = mad(src_block_0[i + 2], wei_02, dst[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_0)[i + 0], wei_00, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_0)[i + 1], wei_01, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_0)[i + 2], wei_02, ((__private INPUT_TYPE*)&dst)[i]);
 
-        dst[i] = mad(src_block_1[i + 0], wei_10, dst[i]);
-        dst[i] = mad(src_block_1[i + 1], wei_11, dst[i]);
-        dst[i] = mad(src_block_1[i + 2], wei_12, dst[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_1)[i + 0], wei_10, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_1)[i + 1], wei_11, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_1)[i + 2], wei_12, ((__private INPUT_TYPE*)&dst)[i]);
 
-        dst[i] = mad(src_block_2[i + 0], wei_20, dst[i]);
-        dst[i] = mad(src_block_2[i + 1], wei_21, dst[i]);
-        dst[i] = mad(src_block_2[i + 2], wei_22, dst[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_2)[i + 0], wei_20, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_2)[i + 1], wei_21, ((__private INPUT_TYPE*)&dst)[i]);
+        ((__private INPUT_TYPE*)&dst)[i] = mad(((__private INPUT_TYPE*)&src_block_2)[i + 2], wei_22, ((__private INPUT_TYPE*)&dst)[i]);
     }
     if (valid_x6) {
-        dst[6] = mad(src_block_0[6], wei_00, dst[6]);
-        dst[6] = mad(src_block_0[7], wei_01, dst[6]);
-        dst[6] = mad(src_tail_00,    wei_02, dst[6]);
+        dst.s6 = mad(src_block_0.s6, wei_00, dst.s6);
+        dst.s6 = mad(src_block_0.s7, wei_01, dst.s6);
+        dst.s6 = mad(src_tail_00,    wei_02, dst.s6);
 
-        dst[6] = mad(src_block_1[6], wei_10, dst[6]);
-        dst[6] = mad(src_block_1[7], wei_11, dst[6]);
-        dst[6] = mad(src_tail_10,    wei_12, dst[6]);
+        dst.s6 = mad(src_block_1.s6, wei_10, dst.s6);
+        dst.s6 = mad(src_block_1.s7, wei_11, dst.s6);
+        dst.s6 = mad(src_tail_10,    wei_12, dst.s6);
 
-        dst[6] = mad(src_block_2[6], wei_20, dst[6]);
-        dst[6] = mad(src_block_2[7], wei_21, dst[6]);
-        dst[6] = mad(src_tail_20,    wei_22, dst[6]);
+        dst.s6 = mad(src_block_2.s6, wei_20, dst.s6);
+        dst.s6 = mad(src_block_2.s7, wei_21, dst.s6);
+        dst.s6 = mad(src_tail_20,    wei_22, dst.s6);
     }
     if (valid_x7) {
-        dst[7] = mad(src_block_0[7], wei_00, dst[7]);
-        dst[7] = mad(src_tail_00,    wei_01, dst[7]);
-        dst[7] = mad(src_tail_01,    wei_02, dst[7]);
+        dst.s7 = mad(src_block_0.s7, wei_00, dst.s7);
+        dst.s7 = mad(src_tail_00,    wei_01, dst.s7);
+        dst.s7 = mad(src_tail_01,    wei_02, dst.s7);
 
-        dst[7] = mad(src_block_1[7], wei_10, dst[7]);
-        dst[7] = mad(src_tail_10,    wei_11, dst[7]);
-        dst[7] = mad(src_tail_11,    wei_12, dst[7]);
+        dst.s7 = mad(src_block_1.s7, wei_10, dst.s7);
+        dst.s7 = mad(src_tail_10,    wei_11, dst.s7);
+        dst.s7 = mad(src_tail_11,    wei_12, dst.s7);
 
-        dst[7] = mad(src_block_2[7], wei_20, dst[7]);
-        dst[7] = mad(src_tail_20,    wei_21, dst[7]);
-        dst[7] = mad(src_tail_21,    wei_22, dst[7]);
+        dst.s7 = mad(src_block_2.s7, wei_20, dst.s7);
+        dst.s7 = mad(src_tail_20,    wei_21, dst.s7);
+        dst.s7 = mad(src_tail_21,    wei_22, dst.s7);
     }
 #else // X_BLOCK_SIZE == 1
-        dst[0] = mad(src_block_0[0], wei_00, dst[0]);
-        dst[0] = mad(src_block_0[1], wei_01, dst[0]);
-        dst[0] = mad(src_block_0[2], wei_02, dst[0]);
+        dst.s0 = mad(src_block_0.s0, wei_00, dst.s0);
+        dst.s0 = mad(src_block_0.s1, wei_01, dst.s0);
+        dst.s0 = mad(src_block_0.s2, wei_02, dst.s0);
 
-        dst[0] = mad(src_block_1[0], wei_10, dst[0]);
-        dst[0] = mad(src_block_1[1], wei_11, dst[0]);
-        dst[0] = mad(src_block_1[2], wei_12, dst[0]);
+        dst.s0 = mad(src_block_1.s0, wei_10, dst.s0);
+        dst.s0 = mad(src_block_1.s1, wei_11, dst.s0);
+        dst.s0 = mad(src_block_1.s2, wei_12, dst.s0);
 
-        dst[0] = mad(src_block_2[0], wei_20, dst[0]);
-        dst[0] = mad(src_block_2[1], wei_21, dst[0]);
-        dst[0] = mad(src_block_2[2], wei_22, dst[0]);
+        dst.s0 = mad(src_block_2.s0, wei_20, dst.s0);
+        dst.s0 = mad(src_block_2.s1, wei_21, dst.s0);
+        dst.s0 = mad(src_block_2.s2, wei_22, dst.s0);
 #endif
 
 #else // ((FILTER_SIZE_X == 3) && (FILTER_SIZE_Y == 3) && (STRIDE_SIZE_X == 1))
@@ -222,7 +222,7 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
     unroll_for (uint k = 0; k < X_BLOCK_SIZE; k++) {
         unroll_for (uint i = 0; i < FILTER_SIZE_Y; i++) {
             unroll_for (uint j = 0; j < FILTER_SIZE_X; j++) {
-                dst[k] = mad(src[k * FILTER_SIZE_Y * FILTER_SIZE_X + i * FILTER_SIZE_X + j], wei[i * FILTER_SIZE_X + j], dst[k]);
+                ((__private INPUT_TYPE*)&dst)[k] = mad(src[k * FILTER_SIZE_Y * FILTER_SIZE_X + i * FILTER_SIZE_X + j], wei[i * FILTER_SIZE_X + j], ((__private INPUT_TYPE*)&dst)[k]);
             }
         }
     }
@@ -251,13 +251,16 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
     {
         for (uint i = 0; i < X_BLOCK_SIZE; i++) {
 #if HAS_FUSED_OPS
+            const __private INPUT_TYPE* dst_s = (const __private INPUT_TYPE*)&dst;
+#define dst dst_s
             FUSED_OPS_SCALAR;
-            res[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+            ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #else
-            res[i] = TO_OUTPUT_TYPE(dst[i]);
+            ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(((__private INPUT_TYPE*)&dst)[i]);
 #endif // HAS_FUSED_OPS
             if ((x + i) < OUTPUT_SIZE_X && f_block * FEATURE_SLICE_SIZE + lid < OUTPUT_FEATURE_NUM)
-                output[output_offset + (x + i) * output_x_pitch + lid] = res[i];
+                output[output_offset + (x + i) * output_x_pitch + lid] = ((__private OUTPUT_TYPE*)&res)[i];
         }
     }
     else
@@ -277,12 +280,15 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
         {
             for (uint i = 0; i < (OUTPUT_SIZE_X % X_BLOCK_SIZE); i++) {
 #if HAS_FUSED_OPS
+                const __private INPUT_TYPE* dst_s = (const __private INPUT_TYPE*)&dst;
+#define dst dst_s
                 FUSED_OPS_SCALAR;
-                res[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+                ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #else
-                res[i] = TO_OUTPUT_TYPE(dst[i]);
+                ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(((__private INPUT_TYPE*)&dst)[i]);
 #endif // HAS_FUSED_OPS
-                DT_OUTPUT_BLOCK_WRITE(output, output_offset + (x + i) * output_x_pitch, res[i]);
+                DT_OUTPUT_BLOCK_WRITE(output, output_offset + (x + i) * output_x_pitch, ((__private OUTPUT_TYPE*)&res)[i]);
             }
         }
     }
@@ -293,10 +299,13 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
     {
 #if HAS_FUSED_OPS
         uint i = 0;
+        const __private INPUT_TYPE* dst_s = (const __private INPUT_TYPE*)&dst;
+#define dst dst_s
         FUSED_OPS_SCALAR;
+#undef dst
         res = FUSED_OPS_RESULT_SCALAR;
 #else
-        res = TO_OUTPUT_TYPE(dst[0]);
+        res = TO_OUTPUT_TYPE(dst.s0);
 #endif // HAS_FUSED_OPS
         if (x < OUTPUT_SIZE_X && f_block * FEATURE_SLICE_SIZE + lid < OUTPUT_FEATURE_NUM)
             output[output_offset + x * output_x_pitch + lid] = res;
@@ -306,10 +315,13 @@ KERNEL(convolution_gpu_bfyx_f16_depthwise)(
     {
 #if HAS_FUSED_OPS
         uint i = 0;
+        const __private INPUT_TYPE* dst_s = (const __private INPUT_TYPE*)&dst;
+#define dst dst_s
         FUSED_OPS_SCALAR;
+#undef dst
         res = FUSED_OPS_RESULT_SCALAR;
 #else
-        res = TO_OUTPUT_TYPE(dst[0]);
+        res = TO_OUTPUT_TYPE(dst.s0);
 #endif // HAS_FUSED_OPS
         DT_OUTPUT_BLOCK_WRITE(output, output_offset + x * output_x_pitch, res);
     }

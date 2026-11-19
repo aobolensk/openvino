@@ -223,14 +223,14 @@ KERNEL(convolution_bfyx_f16)(
                                                                   kh * DILATION_SIZE_Y * input_y_pitch +
                                                                   xb * input_x_pitch);
 
-                        line_cache[xb + 0] = vv[0];
-                        line_cache[xb + 1] = vv[1];
-                        line_cache[xb + 2] = vv[2];
-                        line_cache[xb + 3] = vv[3];
-                        line_cache[xb + 4] = vv[4];
-                        line_cache[xb + 5] = vv[5];
-                        line_cache[xb + 6] = vv[6];
-                        line_cache[xb + 7] = vv[7];
+                        line_cache[xb + 0] = vv.s0;
+                        line_cache[xb + 1] = vv.s1;
+                        line_cache[xb + 2] = vv.s2;
+                        line_cache[xb + 3] = vv.s3;
+                        line_cache[xb + 4] = vv.s4;
+                        line_cache[xb + 5] = vv.s5;
+                        line_cache[xb + 6] = vv.s6;
+                        line_cache[xb + 7] = vv.s7;
                     }
 #if ENABLE_OOB_GUARD
                     for (; xb + 4 <= reachable_size; xb += 4) {
@@ -242,10 +242,10 @@ KERNEL(convolution_bfyx_f16)(
                                                                   kh * DILATION_SIZE_Y * input_y_pitch +
                                                                   xb * input_x_pitch);
 
-                        line_cache[xb + 0] = vv[0];
-                        line_cache[xb + 1] = vv[1];
-                        line_cache[xb + 2] = vv[2];
-                        line_cache[xb + 3] = vv[3];
+                        line_cache[xb + 0] = vv.s0;
+                        line_cache[xb + 1] = vv.s1;
+                        line_cache[xb + 2] = vv.s2;
+                        line_cache[xb + 3] = vv.s3;
                     }
 #if ENABLE_OOB_GUARD
                     for (; xb < reachable_size; xb ++) {
@@ -270,9 +270,9 @@ KERNEL(convolution_bfyx_f16)(
                     __attribute__((opencl_unroll_hint(OUTPUT_X_BLOCK_SIZE)))
                     for (int i = 0; i < OUTPUT_X_BLOCK_SIZE; i++) {
 #if FILTER_SIZE_X == 1 && DILATION_SIZE_X == 1 && STRIDE_SIZE_X == 1
-                        src[i] = line_cache[i];
+                        ((__private INPUT0_TYPE*)&src)[i] = line_cache[i];
 #else
-                        src[i] = line_cache[kw * DILATION_SIZE_X + STRIDE_SIZE_X * i];
+                        ((__private INPUT0_TYPE*)&src)[i] = line_cache[kw * DILATION_SIZE_X + STRIDE_SIZE_X * i];
 #endif  // FILTER_SIZE_X == 1 && DILATION_SIZE_X == 1 && STRIDE_SIZE_X == 1
                     }
 #if MULTIPLE_GROUPS_INPUT_PRELOAD
@@ -280,7 +280,7 @@ KERNEL(convolution_bfyx_f16)(
 
                     ifm_vec_t wei0 = FILTER_VAL_ZERO;
                     for (int ifm = 0; ifm < FILTER_IFM_NUM; ifm++)
-                        wei0[ifm] = weights[grouped_filter_offset +
+                        ((__private FILTER_TYPE*)&wei0)[ifm] = weights[grouped_filter_offset +
                                             ofm_in_group +
                                             ifm * filter_isv_pitch +
                                             kh * filter_y_pitch +
@@ -413,23 +413,26 @@ KERNEL(convolution_bfyx_f16)(
         for (int i = 0; i < OUTPUT_X_BLOCK_SIZE; i++) {
 
 #if HAS_FUSED_OPS
+            const __private INPUT0_TYPE* dst_s = (const __private INPUT0_TYPE*)&dst;
+#define dst dst_s
             FUSED_OPS_SCALAR;
+#undef dst
 #   if OUTPUT_FORMAT_BFYX
-            res[i] = TO_OUTPUT_TYPE(FUSED_OPS_RESULT_SCALAR);
+            ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(FUSED_OPS_RESULT_SCALAR);
 #   else
-            res[i] = FUSED_OPS_RESULT_SCALAR;
+            ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #   endif
 #else
-            res[i] = TO_OUTPUT_TYPE(dst[i]);
+            ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(((__private INPUT0_TYPE*)&dst)[i]);
 #endif
 
 #if OUTPUT_FORMAT_BFYX
             if ((feature_block * FEATURE_SLICE_SIZE + sglid < OUTPUT_FEATURE_NUM) && (x + i) < OUTPUT_SIZE_X) {
-                output[output_offset + i] = res[i];
+                output[output_offset + i] = ((__private OUTPUT_TYPE*)&res)[i];
             }
 #else
             if ((feature_block * FEATURE_SLICE_SIZE + sglid < OUTPUT_FEATURE_NUM) && (x + i) < OUTPUT_SIZE_X) {
-                output[output_offset + i * output_x_pitch + sglid] = res[i];
+                output[output_offset + i * output_x_pitch + sglid] = ((__private OUTPUT_TYPE*)&res)[i];
             }
 #endif
         }
@@ -457,7 +460,7 @@ KERNEL(convolution_bfyx_f16)(
     #if OUTPUT_X_BLOCK_SIZE == 2 || OUTPUT_X_BLOCK_SIZE == 4 || OUTPUT_X_BLOCK_SIZE == 8
             VSTORE(res, 0, output + output_offset);
     #elif OUTPUT_X_BLOCK_SIZE == 1
-            output[output_offset] = res[0];
+            output[output_offset] = ((__private OUTPUT_TYPE*)&res)[0];
     #else
     #   error convolution_gpu_bfyx_f16.cl: unsupported output x block size
     #endif
@@ -477,20 +480,23 @@ KERNEL(convolution_bfyx_f16)(
         } else {
             for (int i = 0; i < OUTPUT_SIZE_X % OUTPUT_X_BLOCK_SIZE; i++) {
 #if HAS_FUSED_OPS
+                const __private INPUT0_TYPE* dst_s = (const __private INPUT0_TYPE*)&dst;
+#define dst dst_s
                 FUSED_OPS_SCALAR;
+#undef dst
 #   if OUTPUT_FORMAT_BFYX
-                res[i] = TO_OUTPUT_TYPE(FUSED_OPS_RESULT_SCALAR);
+                ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(FUSED_OPS_RESULT_SCALAR);
 #   else
-                res[i] = FUSED_OPS_RESULT_SCALAR;
+                ((__private OUTPUT_TYPE*)&res)[i] = FUSED_OPS_RESULT_SCALAR;
 #   endif
 #else
-                res[i] = TO_OUTPUT_TYPE(dst[i]);
+                ((__private OUTPUT_TYPE*)&res)[i] = TO_OUTPUT_TYPE(((__private INPUT0_TYPE*)&dst)[i]);
 #endif
 
 #if OUTPUT_FORMAT_BFYX
-                output[output_offset + i] = res[i];
+                output[output_offset + i] = ((__private OUTPUT_TYPE*)&res)[i];
 #else
-                DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, res[i]);
+                DT_OUTPUT_BLOCK_WRITE(output, output_offset + i * output_x_pitch, ((__private OUTPUT_TYPE*)&res)[i]);
 #endif
             }
         }

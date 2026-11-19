@@ -104,7 +104,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             BLOCK_IN_TYPE_OPT vec_tmp = BLOCK_READ_OPT(input, aligned_data_offset + input_idx * get_sub_group_size());
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++)
             {
-				INPUT0_COMPUTE_TYPE tmp = DECODE_INPUT0_COMPUTE_TYPE(vec_tmp[j]);
+				INPUT0_COMPUTE_TYPE tmp = DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&vec_tmp)[j]);
                 my_chunk[input_idx+j] = tmp;
                 my_maximum = max(my_maximum, tmp);
             }
@@ -129,7 +129,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
 #else
             unroll_for (int j = 0; j < SUBGROUP_BLOCK_SIZE; j++)
             {
-                INPUT0_COMPUTE_TYPE tmp = DECODE_INPUT0_COMPUTE_TYPE(vec_tmp[j]);
+                INPUT0_COMPUTE_TYPE tmp = DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&vec_tmp)[j]);
                 my_chunk[input_idx+j] = tmp;
                 my_maximum = max(my_maximum, tmp);
             }
@@ -217,7 +217,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++) {
                 ACTIVATION_TYPE dequantized = my_chunk[output_idx + j] / my_sum;
                 FUSED_OPS_MAIN;
-                vec_tmp[j] = FUSED_OPS_RESULT_MAIN;
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = FUSED_OPS_RESULT_MAIN;
             }
             BLOCK_WRITE_OPT(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
         }
@@ -246,7 +246,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             {
                 ACTIVATION_TYPE dequantized = my_chunk[output_idx + j] / my_sum;
                 FUSED_OPS_MAIN;
-                vec_tmp[j] = FUSED_OPS_RESULT_MAIN;
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = FUSED_OPS_RESULT_MAIN;
             }
 #endif
             BLOCK_WRITE(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
@@ -282,7 +282,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
         {
             BLOCK_OUT_TYPE_OPT vec_tmp;
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++){
-                vec_tmp[j] = TO_OUTPUT_TYPE(ACTIVATION(my_chunk[output_idx + j] / my_sum, ACTIVATION_PARAMS));
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = TO_OUTPUT_TYPE(ACTIVATION(my_chunk[output_idx + j] / my_sum, ACTIVATION_PARAMS));
             }
             BLOCK_WRITE_OPT(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
         }
@@ -304,7 +304,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             vec_tmp = TO_OUTPUT_TYPE(ACTIVATION(my_chunk[output_idx] / my_sum, ACTIVATION_PARAMS));
 #else
             for (int j = 0; j < SUBGROUP_BLOCK_SIZE; j++)
-                vec_tmp[j] = TO_OUTPUT_TYPE(ACTIVATION(my_chunk[output_idx + j] / my_sum, ACTIVATION_PARAMS));
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = TO_OUTPUT_TYPE(ACTIVATION(my_chunk[output_idx + j] / my_sum, ACTIVATION_PARAMS));
 #endif
             BLOCK_WRITE(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
         }
@@ -333,8 +333,8 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             BLOCK_IN_TYPE_OPT vec_tmp = BLOCK_READ_OPT(input, aligned_data_offset + input_idx * get_sub_group_size());
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++)
             {
-                output[aligned_data_offset + get_sub_group_local_id() + (input_idx + j) * get_sub_group_size()] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(vec_tmp[j]));
-                my_maximum = max(my_maximum, DECODE_INPUT0_COMPUTE_TYPE(vec_tmp[j]));
+                output[aligned_data_offset + get_sub_group_local_id() + (input_idx + j) * get_sub_group_size()] = TO_OUTPUT_TYPE(DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&vec_tmp)[j]));
+                my_maximum = max(my_maximum, DECODE_INPUT0_COMPUTE_TYPE(((__private INPUT0_TYPE*)&vec_tmp)[j]));
             }
         }
 
@@ -419,7 +419,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++) {
                 ACTIVATION_TYPE dequantized = DECODE_OUTPUT_COMPUTE_TYPE(output[aligned_data_offset + get_sub_group_local_id() + (output_idx + j) * get_sub_group_size()]) / my_sum;
                 FUSED_OPS_MAIN;
-                vec_tmp[j] = FUSED_OPS_RESULT_MAIN;
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = FUSED_OPS_RESULT_MAIN;
             }
             BLOCK_WRITE_OPT(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
         }
@@ -462,7 +462,7 @@ KERNEL (softmax_gpu_continuous_bfyx)(
         {
             BLOCK_OUT_TYPE_OPT vec_tmp;
             unroll_for (int j = 0; j < OPT_BLOCK_SIZE; j++){
-                vec_tmp[j] = TO_OUTPUT_TYPE(ACTIVATION(DECODE_OUTPUT_COMPUTE_TYPE(output[aligned_data_offset + get_sub_group_local_id() + (output_idx + j) * get_sub_group_size()]) / my_sum, ACTIVATION_PARAMS));
+                ((__private OUTPUT_TYPE*)&vec_tmp)[j] = TO_OUTPUT_TYPE(ACTIVATION(DECODE_OUTPUT_COMPUTE_TYPE(output[aligned_data_offset + get_sub_group_local_id() + (output_idx + j) * get_sub_group_size()]) / my_sum, ACTIVATION_PARAMS));
             }
             BLOCK_WRITE_OPT(output, aligned_data_offset + output_idx * get_sub_group_size(), vec_tmp);
         }

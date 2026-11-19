@@ -135,7 +135,7 @@ KERNEL(convolution_b_fs_yx_fsv16_1x1)(
                     const uint yb = y + (x + i) / INPUT0_SIZE_X;
                     const uint input_idx = input_offset + k * input_fs_pitch + yb * input_y_pitch + xb * input_x_pitch;
 
-                    src[i] = input[input_idx + sglid];
+                    ((__private UNIT_TYPE*)&src)[i] = input[input_idx + sglid];
                 }
 #else
                 src = input[input_offset + k * input_fs_pitch + sglid];
@@ -153,7 +153,7 @@ KERNEL(convolution_b_fs_yx_fsv16_1x1)(
                 const uint yb = y + (x + i) / INPUT0_SIZE_X;
                 const uint input_idx = input_offset + k * input_fs_pitch + yb * input_y_pitch + xb * input_x_pitch;
 
-                src[i] = UNIT_BLOCK_READ(input, input_idx);
+                ((__private UNIT_TYPE*)&src)[i] = UNIT_BLOCK_READ(input, input_idx);
             }
 #else
             src = UNIT_BLOCK_READ(input, input_offset + k * input_fs_pitch);
@@ -174,7 +174,7 @@ KERNEL(convolution_b_fs_yx_fsv16_1x1)(
                     const uint yb = input_y + (input_x + i) / INPUT0_SIZE_X;
                     const uint input_idx = input_offset + k * input_fs_pitch + yb * input_y_pitch + xb * input_x_pitch;
 
-                    src[i] = UNIT_BLOCK_READ(input, input_idx);
+                    ((__private UNIT_TYPE*)&src)[i] = UNIT_BLOCK_READ(input, input_idx);
                 }
             }
 #else
@@ -244,11 +244,14 @@ KERNEL(convolution_b_fs_yx_fsv16_1x1)(
             int yi = y + ((x + i) / OUTPUT_SIZE_X);
 
 #if HAS_FUSED_OPS
+            const __private UNIT_TYPE* dst_s = (const __private UNIT_TYPE*)&dst;
+#define dst dst_s
             FUSED_OPS_SCALAR;
-            dst[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+            ((__private UNIT_TYPE*)&dst)[i] = FUSED_OPS_RESULT_SCALAR;
 #endif
 
-            output[output_offset + yi * output_y_pitch + xi * output_x_pitch + sglid] = dst[i];
+            output[output_offset + yi * output_y_pitch + xi * output_x_pitch + sglid] = ((__private UNIT_TYPE*)&dst)[i];
         }
 #else // X_BLOCK_SIZE > 1
         if (feature_block * FEATURE_SLICE_SIZE + sglid >= OUTPUT_FEATURE_NUM)
@@ -286,11 +289,14 @@ KERNEL(convolution_b_fs_yx_fsv16_1x1)(
                 int yi = y + ((x + i) / OUTPUT_SIZE_X);
 
 #if HAS_FUSED_OPS
+                const __private UNIT_TYPE* dst_s = (const __private UNIT_TYPE*)&dst;
+#define dst dst_s
                 FUSED_OPS_SCALAR;
-                dst[i] = FUSED_OPS_RESULT_SCALAR;
+#undef dst
+                ((__private UNIT_TYPE*)&dst)[i] = FUSED_OPS_RESULT_SCALAR;
 #endif
 
-                UNIT_BLOCK_WRITE(output, output_offset + yi * output_y_pitch + xi * output_x_pitch, dst[i]);
+                UNIT_BLOCK_WRITE(output, output_offset + yi * output_y_pitch + xi * output_x_pitch, ((__private UNIT_TYPE*)&dst)[i]);
             }
         }
     }
